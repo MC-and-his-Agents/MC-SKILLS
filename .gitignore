@@ -1,0 +1,62 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+site/
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+
+# Node / TS / JS
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.yarn-cache/
+.parcel-cache/
+.turbo/
+.next/
+.nuxt/
+.svelte-kit/
+coverage/
+vite.svg
+*.tsbuildinfo
+
+# Shell / local scripts
+.env
+.env.*
+*.local
+*.bak
+*.tmp
+*.log
+
+# Git / build outputs
+target/
+out/
+tmp/
+temp/
+
