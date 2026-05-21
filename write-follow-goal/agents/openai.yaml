@@ -1,4 +1,4 @@
 interface:
   display_name: "编写 Follow Goal"
   short_description: "起草可持续的 Codex /goal 目标"
-  default_prompt: "使用 $write-follow-goal 将当前任务转成一个可持续的 Codex /goal，并保持与用户语言一致；默认中文输出，包含清晰的验证条件和停止条件。"
+  default_prompt: "使用 $write-follow-goal 将当前任务转成一条可直接执行的单行 Codex /goal 命令，并保持与用户语言一致；默认中文输出，包含清晰的验证条件和停止条件。"
