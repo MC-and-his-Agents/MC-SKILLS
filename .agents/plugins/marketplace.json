@@ -1,0 +1,20 @@
+{
+  "name": "mcskills",
+  "interface": {
+    "displayName": "MCSKILLS"
+  },
+  "plugins": [
+    {
+      "name": "codegraph-intelligence",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codegraph-intelligence"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
