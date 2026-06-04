@@ -52,13 +52,13 @@ Produce an engineering decision report, not a static analysis log. First discove
 Example evidence collection:
 
 ```bash
-python3 code-smell-decision/scripts/scan-size-complexity.py src/billing
-python3 code-smell-decision/scripts/scan-duplication.py src/billing
-python3 code-smell-decision/scripts/scan-dependencies.py src/billing
-python3 code-smell-decision/scripts/scan-tests.py src/billing
-python3 code-smell-decision/scripts/scan-literals-comments.py src/billing
-python3 code-smell-decision/scripts/scan-git-churn.py src/billing --since "90 days ago"
-python3 code-smell-decision/scripts/build-evidence-pack.py --target src/billing size.json literals.json churn.json
+python3 scripts/scan-size-complexity.py src/billing
+python3 scripts/scan-duplication.py src/billing
+python3 scripts/scan-dependencies.py src/billing
+python3 scripts/scan-tests.py src/billing
+python3 scripts/scan-literals-comments.py src/billing
+python3 scripts/scan-git-churn.py src/billing --since "90 days ago"
+python3 scripts/build-evidence-pack.py --target src/billing size.json literals.json churn.json
 ```
 
 Scripts print JSON to stdout and should be treated as evidence collectors only. Their findings are candidates, not final engineering decisions.
