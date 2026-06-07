@@ -1,0 +1,105 @@
+# Gates And Closeout
+
+## Scheduler-Owned Gate Protocol / Scheduler 拥有的 Gate
+
+默认高成本 gate 由 scheduler 拥有：
+
+- guardian。
+- formal review。
+- semantic review。
+- controlled merge。
+- release/deployment approval。
+- post-merge readback。
+- closeout consumption。
+
+worker 只有在 scheduler 明确授权 exact PR/task 和 exact head 时，才能运行这些 gate。
+
+以下条件全部满足后，worker 进入 `waiting-scheduler-gate`：
+
+- scope diff 匹配 objective 和 allowed write paths。
+- local validation 通过。
+- PR/task body metadata 已更新并 read back。
+- hosted checks 在当前 head 上为 green。
+- head/base 明确。
+- branch type 匹配 actual diff。
+- findings 已解决或 dispositioned。
+- 修复 guardian/review finding 后，same-class drift search 已完成。
+
+`waiting-scheduler-gate` 是 scheduler action queue。scheduler 必须运行或授权 next gate；不要要求 worker 重复同一个 missing-review report。
+
+## Review Entry Checklist / Review 入口清单
+
+运行 high-cost gate 前，确认：
+
+- PR/task head、base 和 body metadata 已 read back。
+- hosted checks 在当前 head 上 green，不是旧 head。
+- scope diff 匹配 objective、branch type 和 allowed write paths。
+- machine-readable metadata 位于 parser 可消费位置，且 enum values 合法。
+- 最近 guardian/review findings 已 dispositioned。
+- same-class search 覆盖相关表面：public API、formal spec、generated output、metadata parser、head binding、integration/live gate 或等价风险表面。
+- 之前若出现 root-cause drift，先确认 root-cause correction 已完成，再重跑 guardian。
+
+类似 finding、test failure、metadata gap 或 gate gap 出现两次时，停止 high-cost retries，发出 narrow root-cause correction objective。
+
+## Guardian Finding Root Cause / Finding 根因
+
+worker 修复 finding 后，report 应包含：
+
+- finding id/source。
+- root cause。
+- changed files，以及为什么 scope 足够。
+- same-class search command/results。
+- targeted validation。
+- PR/task body update 和 readback status。
+- new head/base。
+- remaining risk。
+
+scheduler 消费这些信息后，才能进入下一次 high-cost run。
+
+## Controlled Merge / Release
+
+使用仓库本地的 controlled wrapper 执行 merge、approval、release 或 deployment。
+
+只有以下条件满足时才继续：
+
+- local gate/check 通过。
+- hosted required checks 通过。
+- head/body/payload metadata 对齐。
+- mergeability/readiness clean。
+- host enforcement 和 required checks 可证明。
+- controlled wrapper check 通过。
+
+以下情况停下并请求 scheduler/root-cause action：
+
+- 有界 retry 后 host enforcement/readback 仍不可用。
+- 无法证明 required checks 被 enforced。
+- wrapper 因非 transient 原因失败。
+- proposed path 使用 raw host command 绕过 wrapper policy。
+
+## Post-Merge Readback / 合并后读回
+
+implementation merge 通常不是完整完成。必须 read back：
+
+- merged state 和 merge/release commit。
+- target branch/base state。
+- related issue/task closure 或 completion。
+- reconciliation/closeout checks。
+- terminal carrier/status/shadow/evidence state。
+- final validation evidence 和 remaining risk。
+
+如果 target branch 仍记录 pre-merge state，基于最新 base/main 创建 closeout-only branch/PR/task。
+
+## Closeout-Only Work / 仅收口工作
+
+closeout-only work 只应修改消费完成事实所需的 carrier/status/evidence 文件。除非 scheduler 明确改变 objective，否则不得夹带 implementation changes。
+
+closeout-only PR/task 仍需要：
+
+- fresh base/main。
+- narrow branch 和 allowed write paths。
+- metadata readback。
+- hosted checks。
+- controlled merge。
+- final readback。
+
+post-merge evidence 必须标注为 post-merge。不得把 post-merge review comments 或 checks 表述成 pre-merge gates。

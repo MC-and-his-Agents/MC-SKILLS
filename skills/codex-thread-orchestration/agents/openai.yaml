@@ -1,0 +1,4 @@
+interface:
+  display_name: "线程协作编排"
+  short_description: "协调 scheduler 与 worker 的线程协作协议"
+  default_prompt: "使用 $codex-thread-orchestration 作为 scheduler/worker 协作协议：默认用中文说明和回报，并根据用户语言适配；scheduler 拆分、调度、gate 和 closeout，worker 确认现场、创建 goal、执行 scope、回报关键节点并等待 scheduler gate。协议字段和状态枚举保持机器可读。"
