@@ -1,105 +1,105 @@
 # Gates And Closeout
 
-## Scheduler-Owned Gate Protocol
+## Scheduler-Owned Gate Protocol / Scheduler 拥有的 Gate
 
-High-cost gates are scheduler-owned by default:
+默认高成本 gate 由 scheduler 拥有：
 
-- guardian.
-- formal review.
-- semantic review.
-- controlled merge.
-- release/deployment approval.
-- post-merge readback.
-- closeout consumption.
+- guardian。
+- formal review。
+- semantic review。
+- controlled merge。
+- release/deployment approval。
+- post-merge readback。
+- closeout consumption。
 
-A worker may run one only when the scheduler explicitly authorizes the exact PR/task and head.
+worker 只有在 scheduler 明确授权 exact PR/task 和 exact head 时，才能运行这些 gate。
 
-Workers enter `waiting-scheduler-gate` when all are true:
+以下条件全部满足后，worker 进入 `waiting-scheduler-gate`：
 
-- scope diff matches the objective and allowed write paths.
-- local validation passes.
-- PR/task body metadata is updated and read back.
-- hosted checks are green for the current head.
-- head/base are explicit.
-- branch type matches actual diff.
-- findings are resolved or dispositioned.
-- same-class drift search is complete when a guardian/review finding was fixed.
+- scope diff 匹配 objective 和 allowed write paths。
+- local validation 通过。
+- PR/task body metadata 已更新并 read back。
+- hosted checks 在当前 head 上为 green。
+- head/base 明确。
+- branch type 匹配 actual diff。
+- findings 已解决或 dispositioned。
+- 修复 guardian/review finding 后，same-class drift search 已完成。
 
-`waiting-scheduler-gate` is a scheduler action queue. The scheduler must run or authorize the next gate; do not ask the worker to repeat the same missing-review report.
+`waiting-scheduler-gate` 是 scheduler action queue。scheduler 必须运行或授权 next gate；不要要求 worker 重复同一个 missing-review report。
 
-## Review Entry Checklist
+## Review Entry Checklist / Review 入口清单
 
-Before high-cost gate execution, verify:
+运行 high-cost gate 前，确认：
 
-- PR/task head, base, and body metadata were read back.
-- hosted checks are green for the current head, not an old head.
-- scope diff matches objective, branch type, and allowed write paths.
-- machine-readable metadata is placed where the parser consumes it, with legal enum values.
-- recent guardian/review findings are dispositioned.
-- same-class search covered relevant surfaces: public API, formal spec, generated output, metadata parser, head binding, integration/live gate, or equivalent risk surfaces.
-- previous root-cause drift has been corrected before rerunning guardian.
+- PR/task head、base 和 body metadata 已 read back。
+- hosted checks 在当前 head 上 green，不是旧 head。
+- scope diff 匹配 objective、branch type 和 allowed write paths。
+- machine-readable metadata 位于 parser 可消费位置，且 enum values 合法。
+- 最近 guardian/review findings 已 dispositioned。
+- same-class search 覆盖相关表面：public API、formal spec、generated output、metadata parser、head binding、integration/live gate 或等价风险表面。
+- 之前若出现 root-cause drift，先确认 root-cause correction 已完成，再重跑 guardian。
 
-If a similar finding, test failure, metadata gap, or gate gap appears twice, stop high-cost retries and issue a narrow root-cause correction objective.
+类似 finding、test failure、metadata gap 或 gate gap 出现两次时，停止 high-cost retries，发出 narrow root-cause correction objective。
 
-## Guardian Finding Root Cause
+## Guardian Finding Root Cause / Finding 根因
 
-When a finding is fixed, the worker report should include:
+worker 修复 finding 后，report 应包含：
 
-- finding id/source.
-- root cause.
-- changed files and why the scope is sufficient.
-- same-class search command/results.
-- targeted validation.
-- PR/task body update and readback status.
-- new head/base.
-- remaining risk.
+- finding id/source。
+- root cause。
+- changed files，以及为什么 scope 足够。
+- same-class search command/results。
+- targeted validation。
+- PR/task body update 和 readback status。
+- new head/base。
+- remaining risk。
 
-The scheduler consumes this before another high-cost run.
+scheduler 消费这些信息后，才能进入下一次 high-cost run。
 
 ## Controlled Merge / Release
 
-Use the repository's controlled wrapper for merge, approval, release, or deployment.
+使用仓库本地的 controlled wrapper 执行 merge、approval、release 或 deployment。
 
-Proceed only when:
+只有以下条件满足时才继续：
 
-- local gate/check passes.
-- hosted required checks pass.
-- head/body/payload metadata align.
-- mergeability/readiness is clean.
-- host enforcement and required checks are proven.
-- controlled wrapper check passes.
+- local gate/check 通过。
+- hosted required checks 通过。
+- head/body/payload metadata 对齐。
+- mergeability/readiness clean。
+- host enforcement 和 required checks 可证明。
+- controlled wrapper check 通过。
 
-Stop and request scheduler/root-cause action when:
+以下情况停下并请求 scheduler/root-cause action：
 
-- host enforcement/readback remains unavailable after bounded retry.
-- required checks cannot be proven enforced.
-- wrapper fails for a non-transient reason.
-- the proposed path uses a raw host command to bypass wrapper policy.
+- 有界 retry 后 host enforcement/readback 仍不可用。
+- 无法证明 required checks 被 enforced。
+- wrapper 因非 transient 原因失败。
+- proposed path 使用 raw host command 绕过 wrapper policy。
 
-## Post-Merge Readback
+## Post-Merge Readback / 合并后读回
 
-Implementation merge is usually not full completion. Read back:
+implementation merge 通常不是完整完成。必须 read back：
 
-- merged state and merge/release commit.
-- target branch/base state.
-- related issue/task closure or completion.
-- reconciliation/closeout checks.
-- terminal carrier/status/shadow/evidence state.
-- final validation evidence and remaining risk.
+- merged state 和 merge/release commit。
+- target branch/base state。
+- related issue/task closure 或 completion。
+- reconciliation/closeout checks。
+- terminal carrier/status/shadow/evidence state。
+- final validation evidence 和 remaining risk。
 
-If the target branch still records pre-merge state, create a closeout-only branch/PR/task based on latest base/main.
+如果 target branch 仍记录 pre-merge state，基于最新 base/main 创建 closeout-only branch/PR/task。
 
-## Closeout-Only Work
+## Closeout-Only Work / 仅收口工作
 
-Closeout-only work should change only carrier/status/evidence files needed to consume completion facts. It must not include implementation changes unless the scheduler explicitly changes the objective.
+closeout-only work 只应修改消费完成事实所需的 carrier/status/evidence 文件。除非 scheduler 明确改变 objective，否则不得夹带 implementation changes。
 
-Closeout-only PR/task still requires:
+closeout-only PR/task 仍需要：
 
-- fresh base/main.
-- narrow branch and allowed write paths.
-- metadata readback.
-- hosted checks.
-- controlled merge.
-- final readback.
+- fresh base/main。
+- narrow branch 和 allowed write paths。
+- metadata readback。
+- hosted checks。
+- controlled merge。
+- final readback。
 
-Post-merge evidence must be labeled as post-merge. Do not present post-merge review comments or checks as if they were pre-merge gates.
+post-merge evidence 必须标注为 post-merge。不得把 post-merge review comments 或 checks 表述成 pre-merge gates。

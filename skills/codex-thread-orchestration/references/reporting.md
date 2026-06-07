@@ -1,37 +1,37 @@
 # Reporting Protocol
 
-Scheduler-readable reporting is mandatory. A worker message visible only inside the worker thread is not enough unless the scheduler can consume it through thread readback.
+scheduler-readable reporting 是硬要求。只在 worker thread 内写“完成了”不够，除非 scheduler 能通过 thread readback 消费。
 
-## Delivery Priority
+## Delivery Priority / 投递优先级
 
-Use the strongest available delivery path:
+使用当前可用的最强投递路径：
 
-1. If `send_message_to_thread` is available in the worker thread, send the report to the concrete `scheduler_thread_id`.
-2. If cross-thread sending is not available, output a `<codex_delegation>` envelope in a key milestone or final response.
-3. If neither is available, output a machine-readable block beginning with `Scheduler Report:`.
+1. worker thread 可用 `send_message_to_thread` 时，发送给具体 `scheduler_thread_id`。
+2. 没有跨线程发送工具时，在关键节点或 final response 输出 `<codex_delegation>` envelope。
+3. 两者都不可用时，输出以 `Scheduler Report:` 开头的机器可读 block。
 
-The scheduler must provide a concrete `scheduler_thread_id`. If missing, the worker reports the gap after worksite/goal self-check and waits for correction.
+scheduler 必须提供具体 `scheduler_thread_id`。如果缺失，worker 在 worksite/goal self-check 后回报该缺口并等待 correction。
 
-## Required Report Nodes
+## Required Report Nodes / 必要回报节点
 
-Workers must report at these points:
+worker 必须在这些节点回报：
 
-- worksite and goal self-check complete.
-- PR/task created or updated, with head/body/payload metadata readback.
-- hosted checks pending or in progress.
-- hosted checks pass.
-- hosted checks fail, after root-cause classification.
-- entering `waiting-scheduler-gate`.
-- blocker needs scheduler decision.
-- before marking goal `blocked`.
-- before marking goal `complete`.
-- final scope completion.
+- worksite 和 goal self-check 完成。
+- PR/task 创建或更新，且 head/body/payload metadata readback 完成。
+- hosted checks pending 或 in progress。
+- hosted checks pass。
+- hosted checks fail，并完成 root-cause classification。
+- 进入 `waiting-scheduler-gate`。
+- blocker 需要 scheduler decision。
+- 标记 goal `blocked` 前。
+- 标记 goal `complete` 前。
+- final scope completion。
 
-Schedulers must read and consume reports before changing table state, running high-cost gates, resuming blocked/complete workers, closing out a batch, or declaring the Top Goal complete.
+scheduler 在改变 table state、运行 high-cost gate、恢复 blocked/complete worker、关闭 batch 或声明 Top Goal complete 前，必须读取并消费 report。
 
-## Minimal Report Schema
+## Minimal Report Schema / 最小回报结构
 
-Use this shape in `send_message_to_thread`, delegation envelopes, or fallback reports:
+在 `send_message_to_thread`、delegation envelope 或 fallback report 中使用这个形状：
 
 ```text
 Worker: <worker_id>
@@ -55,7 +55,7 @@ Next worker action: <exact action or waiting>
 Risks: <remaining risk or none>
 ```
 
-## Delegation Fallback
+## Delegation Fallback / 委派兜底
 
 ```xml
 <codex_delegation>
@@ -77,9 +77,9 @@ Risks: <remaining risk or none>
 </codex_delegation>
 ```
 
-## Scheduler Decision Request
+## Scheduler Decision Request / 请求调度决策
 
-When a worker needs scheduler judgment, report:
+worker 需要 scheduler 判断时，回报：
 
 ```text
 Scheduler decision needed:
@@ -90,19 +90,19 @@ Scheduler decision needed:
 - current goal status:
 ```
 
-If the worker cannot continue meaningfully without the decision, block the current goal after sending the report.
+如果没有该决策就不能继续有意义推进，发送 report 后 block current goal。
 
-## Complete Before Report Is Invalid
+## Complete Before Report Is Invalid / 未回报不得完成
 
-A worker must not mark a goal complete before producing a scheduler-readable report that includes:
+worker 在生成 scheduler-readable report 前，不得将 goal 标记为 complete。report 至少包含：
 
-- PR/task URL or equivalent carrier.
-- head/base.
-- validation commands and result.
-- hosted checks and run ids if available.
-- gate owner and gate status.
-- issue/task state.
-- final worktree status.
-- remaining risks or explicit none.
+- PR/task URL 或等价 carrier。
+- head/base。
+- validation commands 和 result。
+- hosted checks，以及可用的 run ids。
+- gate owner 和 gate status。
+- issue/task state。
+- final worktree status。
+- remaining risks，或明确 none。
 
-The scheduler must not treat a worker as complete until this report is consumed.
+scheduler 消费该 report 前，不得把 worker 视为 complete。

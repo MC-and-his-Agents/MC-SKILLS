@@ -1,60 +1,60 @@
 # Goal Lifecycle
 
-## API Limits
+## API Limits / API 限制
 
-Goal tools operate only in the current thread.
+Goal tools 只作用于当前线程。
 
-Supported:
+支持：
 
-- create a goal in the current thread.
-- read the current thread goal.
-- end the current thread goal as `complete` or `blocked`.
+- 在当前线程创建 goal。
+- 读取当前线程 goal。
+- 将当前线程 goal 结束为 `complete` 或 `blocked`。
 
-Not supported:
+不支持：
 
-- edit a goal objective.
-- pause a goal.
-- resume an active goal.
-- unblock a blocked goal.
-- create or read another thread's goal.
-- convert `blocked` or `complete` back to active.
+- 编辑 goal objective。
+- 暂停 goal。
+- 恢复 active goal。
+- 解除 blocked goal。
+- 创建或读取其他线程的 goal。
+- 将 `blocked` 或 `complete` 转回 active。
 
-## Worker Rules
+## Worker Rules / Worker 规则
 
-Workers must create their own goal after confirming the worksite. The objective must exactly match the delegated objective. Immediately run `get_goal` and report objective/status to the scheduler.
+worker 必须在确认 worksite 后自己创建 goal。objective 必须与 delegated objective 完全一致。随后立即运行 `get_goal`，并向 scheduler 回报 objective/status。
 
-If `create_goal` fails because an old goal exists, report the old goal state. If it is `blocked` or `complete`, the scheduler must send a new exact objective for a new goal before work continues.
+如果 `create_goal` 因 old goal 存在而失败，回报 old goal state。若 old goal 是 `blocked` 或 `complete`，scheduler 必须发送新的 exact objective，worker 才能创建新 goal 继续。
 
-Do not mark a goal complete without a scheduler-readable final report. If `gate_owner=scheduler`, completion is usually not local merge; the worker should report `waiting-scheduler-gate`.
+没有 scheduler-readable final report，不得标记 goal complete。如果 `gate_owner=scheduler`，complete 通常不是本地 merge；worker 应回报 `waiting-scheduler-gate`。
 
-## Waiting Is Not Always Blocked
+## Waiting Is Not Always Blocked / 等待不总是阻塞
 
-Do not block the goal for:
+以下情况不要 block goal：
 
-- hosted checks pending on the same run.
-- bounded waiting for a hosted run already in progress.
-- transient API/transport issue under bounded read-only retry.
-- waiting for the scheduler to consume a `waiting-scheduler-gate` report when the worker can simply stop after reporting.
+- hosted checks pending on the same run。
+- 对 already in-progress hosted run 的有界等待。
+- transient API/transport issue 的有界只读 retry。
+- worker 已回报 `waiting-scheduler-gate` 后，等待 scheduler 消费该 report。
 
-Use table/report states such as `waiting-hosted` and `waiting-scheduler-gate` for these cases.
+这些情况使用 table/report state，例如 `waiting-hosted` 和 `waiting-scheduler-gate`。
 
-## When To Block
+## When To Block / 何时 Block
 
-Block the current goal after reporting when:
+以下情况在回报后 block current goal：
 
-- worksite, branch, head, status, or metadata does not match the assignment.
-- `create_goal` or `get_goal` is abnormal.
-- progress requires another worker's scope, another unit, or the main/project worktree.
-- the scheduler explicitly asks the worker to pause, wait for decision, or wait for another worker.
-- a stable semantic failure requires changing policy, parser, review, head binding, approval, merge, release, or gate rules.
-- bounded retries cannot prove host enforcement, branch protection, ruleset, or required checks.
-- a controlled wrapper fails for a non-transient reason.
-- the only remaining path would use a raw command to bypass wrapper policy.
-- the objective is inconsistent or impossible.
+- worksite、branch、head、status 或 metadata 与 assignment 不一致。
+- `create_goal` 或 `get_goal` 异常。
+- 继续推进需要修改另一个 worker 的 scope、另一个 unit 或 main/project worktree。
+- scheduler 明确要求 worker pause、wait for decision 或 wait for another worker。
+- 稳定语义失败需要修改 policy、parser、review、head binding、approval、merge、release 或 gate rules。
+- 有界 retry 后仍无法证明 host enforcement、branch protection、ruleset 或 required checks。
+- controlled wrapper 因非 transient 原因失败。
+- 唯一路径是用 raw command 绕过 wrapper policy。
+- objective 不一致或不可达。
 
-After `blocked`, the scheduler must resume with a new exact objective and the worker must create a new goal.
+`blocked` 后，scheduler 必须用新的 exact objective 恢复，worker 必须创建新 goal。
 
-## Recovery Prompt
+## Recovery Prompt / 恢复 Prompt
 
 ```text
 Your previous goal is blocked/complete. The API cannot resume or edit it.
@@ -64,8 +64,8 @@ Create a new goal with this exact objective:
 After creation, run get_goal and report objective/status. Do not treat the old goal as active.
 ```
 
-## Scheduler Implications
+## Scheduler Implications / 对 Scheduler 的含义
 
-The scheduler audits worker self-reports; it cannot directly inspect worker goals through goal APIs. `read_thread` is useful for status readback, but it is not a goal API.
+scheduler 审核 worker self-reports；不能通过 goal API 直接检查 worker goal。`read_thread` 可用于 status readback，但不是 goal API。
 
-Do not ask a blocked or complete worker to "continue" without a new objective. Do not consider the global objective blocked just because one worker goal is blocked; classify the blocker and schedule the next actionable owner.
+不要要求 blocked 或 complete worker “继续”而不提供新 objective。不要因为一个 worker goal blocked 就认为 global objective blocked；先分类 blocker，并调度可行动的 owner。

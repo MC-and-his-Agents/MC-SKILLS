@@ -1,6 +1,6 @@
 # Templates
 
-## Worker Initial Prompt
+## Worker Initial Prompt / Worker 初始 Prompt
 
 ```text
 Worker identity:
@@ -31,7 +31,7 @@ If the worksite is consistent, create a goal with the exact objective above, imm
 Do not write project/root main worktree. Do not expand scope. Do not run guardian/formal review/controlled merge/closeout unless explicitly authorized for the current head.
 ```
 
-## Scheduler Correction Prompt
+## Scheduler Correction Prompt / Scheduler 纠偏 Prompt
 
 ```text
 <Worker id>, scheduler decision:
@@ -52,7 +52,7 @@ Report back with:
 - blocker or next scheduler action:
 ```
 
-## Recovery Prompt For Blocked/Complete Goal
+## Recovery Prompt For Blocked/Complete Goal / 恢复 Prompt
 
 ```text
 Your previous goal is blocked/complete. The API cannot resume or edit it.
@@ -62,7 +62,7 @@ Create a new goal with this exact objective:
 After creation, run get_goal and report objective/status to scheduler_thread_id. Do not treat the old goal as active.
 ```
 
-## Delegation Fallback
+## Delegation Fallback / 委派兜底
 
 ```xml
 <codex_delegation>
@@ -84,7 +84,7 @@ After creation, run get_goal and report objective/status to scheduler_thread_id.
 </codex_delegation>
 ```
 
-## Waiting Scheduler Gate Report
+## Waiting Scheduler Gate Report / 等待调度 Gate 回报
 
 ```text
 Scheduler Report:
@@ -106,7 +106,7 @@ Next scheduler action: <run guardian / formal review / controlled merge / post-m
 Next worker action: waiting
 ```
 
-## Heartbeat Prompt Skeleton
+## Heartbeat Prompt Skeleton / Heartbeat Prompt 骨架
 
 ```text
 You are the scheduler thread. Do not create a scheduler active goal.

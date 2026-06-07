@@ -1,8 +1,8 @@
 # Scheduler Protocol
 
-## Scheduler Self-Check
+## Scheduler Self-Check / 主调度自检
 
-Before creating workers, state the scheduler facts:
+创建 worker 前，先写清 scheduler facts：
 
 ```text
 Role: scheduler.
@@ -12,11 +12,11 @@ Constraints: <scope, forbidden paths/actions, gate owner, external-action limits
 Scheduler duties: split streams, create/resume workers, maintain dispatch table, send cross-thread instructions, classify blockers, run or authorize gates, consume closeout.
 ```
 
-The scheduler normally should not create a long-lived active goal for itself. Use heartbeat plus the dispatch table for liveness unless the user explicitly asks for a scheduler goal or the scheduler action is short and self-contained.
+scheduler 默认不要创建长期 active goal。除非用户明确要求 scheduler goal，或调度动作短且能闭环，否则使用 heartbeat 和 dispatch table 保持活性。
 
-## Dispatch Table
+## Dispatch Table / 调度表
 
-Maintain a scheduler-owned table:
+维护 scheduler-owned table：
 
 ```text
 Top Goal:
@@ -43,11 +43,11 @@ T1:
 - next_scheduler_action:
 ```
 
-Update it after every worker report, hosted check readback, gate result, merge, blocker triage, and closeout event.
+每次 worker report、hosted check readback、gate result、merge、blocker triage 和 closeout event 后都要更新。
 
-## Stream Planning
+## Stream Planning / 任务流规划
 
-Before creating worker/worktree/branch resources, register:
+创建 worker/worktree/branch 前，先登记：
 
 ```text
 Streams:
@@ -67,9 +67,9 @@ Streams:
 - initial state: planned | ready-to-start | dependency-blocked
 ```
 
-Create the first batch only from dependency-ready streams. Keep dependency-blocked, closeout-only, repair-only, or high-conflict carrier/status/evidence streams as planned until their trigger is true.
+首批只创建 dependency-ready stream。dependency-blocked、closeout-only、repair-only、高冲突 carrier/status/evidence stream 保持 planned，直到触发条件成立。
 
-Recommended phases:
+推荐阶段：
 
 ```text
 Phase 0: Planning
@@ -97,18 +97,18 @@ Phase 3: Merge And Closeout
 - merge closeout-only through the controlled protocol
 ```
 
-## Branch And Worktree Rules
+## Branch And Worktree Rules / 分支与现场规则
 
-Branch prefix guidance:
+branch prefix 建议：
 
-- Docs, specs, governance, or skill text only: prefer `docs/...`.
-- Runtime code, generated artifacts, or shared implementation: use `feat/...` or `fix/...`.
-- Test fixtures, regression cases, or baselines: use `test/...` unless the repo has a stronger convention.
-- If scope may expand from docs to code, freeze the scope first. If you cannot freeze it, do not use `docs/...`.
+- 只改 docs、spec、governance 或 skill text：优先 `docs/...`。
+- 改 runtime code、generated artifacts 或 shared implementation：使用 `feat/...` 或 `fix/...`。
+- 改 test fixtures、regression cases 或 baselines：使用 `test/...`，除非仓库有更强约定。
+- 如果 scope 可能从 docs 扩展到 code，先冻结 scope。无法冻结时，不要使用 `docs/...`。
 
-Worker objectives must include branch prefix, allowed write paths, and forbidden paths. A worker that finds branch type and actual diff inconsistent must report and wait for correction.
+worker objective 必须包含 branch prefix、allowed write paths 和 forbidden paths。worker 发现 branch type 与 actual diff 不一致时，必须回报并等待 correction。
 
-If the thread creation tool uses an existing branch ref, create or verify the ref first:
+如果 thread creation tool 要求既有 branch ref，先创建或验证 ref：
 
 ```bash
 git fetch origin --prune
@@ -116,56 +116,56 @@ git show-ref --verify --quiet "refs/heads/<branch-name>" || git branch "<branch-
 git rev-parse "<branch-name>"
 ```
 
-Do not assume a thread creation tool both creates a branch and checks it out. After creation, read back the worker's real `cwd`; a Codex-managed worktree path is the worker worksite, while `project/root` is only the repository identity.
+不要假设 thread creation tool 会同时创建 branch 并 checkout。创建后读回 worker 真实 `cwd`；Codex-managed worktree path 才是 worker worksite，`project/root` 只是仓库身份。
 
-Detached HEAD at base/main can be a normal worktree initialization state. If the worker is in its own Codex-managed worktree, the scheduler may explicitly authorize `git switch <assigned-branch>` there before goal creation. Do not ask the worker to switch the project/root main worktree.
+detached HEAD at base/main 可以是 worktree 初始化的正常中间态。若 worker 位于自己的 Codex-managed worktree，scheduler 可明确授权它在该 worksite 内执行 `git switch <assigned-branch>` 后再创建 goal。不要要求 worker 切换 project/root main worktree。
 
-## Worker Creation
+## Worker Creation / 创建 Worker
 
-New workers should receive:
+新 worker 应收到：
 
-- worker id and concrete `worker_thread_id` if known after creation.
-- concrete `scheduler_thread_id`; never "current scheduler thread".
-- standardized title: `[<Project/Round>][T3][<unit-range>][PR#123] short task name`.
-- exact objective.
-- project/root and actual worker worksite.
-- assigned branch, base, related units, allowed write paths, forbidden paths.
-- gate owner and high-cost gate authorization status.
-- first action: read-only worksite check, then `create_goal` and `get_goal` self-check.
+- worker id，以及创建后可得的具体 `worker_thread_id`。
+- 具体 `scheduler_thread_id`；不要写 "current scheduler thread"。
+- 标准标题：`[<Project/Round>][T3][<unit-range>][PR#123] short task name`。
+- exact objective。
+- project/root 和 actual worker worksite。
+- assigned branch、base、related units、allowed write paths、forbidden paths。
+- gate owner 和 high-cost gate authorization status。
+- 第一动作：只读 worksite check，然后 `create_goal` 和 `get_goal` self-check。
 
-Model/reasoning defaults:
+model/reasoning 默认规则：
 
-- Complex scheduling, shared contracts, cross-module work, release/merge risk, high-cost gates, security/data/policy risk, or repeated blockers: use a high-capability model such as `gpt-5.5` with `high` reasoning.
-- Standard single-module implementation, test analysis, or local review: use a capable standard model with `medium` reasoning; raise to `high` when uncertainty or blast radius grows.
-- Mechanical lookup, formatting, inventory, or low-risk read-only checks: use a fast lower-cost model with `low` reasoning.
-- If the environment cannot choose model or reasoning explicitly, record the limitation in the dispatch table and compensate with tighter review/validation.
+- 复杂调度、shared contracts、跨模块 work、release/merge risk、高成本 gate、security/data/policy risk 或 repeated blockers：使用高能力模型，例如 `gpt-5.5` + `high` reasoning。
+- 常规单模块 implementation、test analysis 或 local review：使用标准能力模型 + `medium` reasoning；不确定性或 blast radius 增大时升到 `high`。
+- 机械 lookup、formatting、inventory 或低风险 read-only checks：使用快速低成本模型 + `low` reasoning。
+- 如果环境不能显式选择 model 或 reasoning，在 dispatch table 中记录限制，并提高 review/validation 强度。
 
-Register the thread id immediately after creation. If title tools exist, set/rename the thread immediately; otherwise keep the standard title in the prompt and dispatch table.
+创建后立即登记 thread id。若有 title 工具，立即 set/rename；否则在 prompt 和 dispatch table 中保留标准标题。
 
-## Tool Availability And Fallbacks
+## Tool Availability And Fallbacks / 工具可用性与兜底
 
-Prefer purpose-built thread and automation tools when available:
+优先使用专门的 thread 和 automation 工具：
 
-- `create_thread`: create dependency-ready workers and bind the intended branch/worktree when the tool supports it.
-- `send_message_to_thread`: deliver any instruction that requires worker action.
-- `read_thread`: read worker reports or status summaries; do not treat it as a goal API.
-- `handoff_thread`: recover or migrate an existing worker when creation is not the right operation.
-- heartbeat automation: keep scheduler liveness across hosted checks, gate waits, and closeout.
+- `create_thread`：创建 dependency-ready worker，并在工具支持时绑定目标 branch/worktree。
+- `send_message_to_thread`：发送任何需要 worker 行动的指令。
+- `read_thread`：读取 worker report 或 status summary；不要当作 goal API。
+- `handoff_thread`：恢复或迁移已有 worker；不要替代新 worker 创建。
+- heartbeat automation：在 hosted checks、gate waits 和 closeout 跨越时间时保持 scheduler liveness。
 
-Fallback rules:
+兜底规则：
 
-- If `create_thread` is unavailable, keep the stream `planned` and report the exact worker prompt, branch, worksite requirement, and blocker; do not pretend a worker exists.
-- If branch/worktree binding is unavailable, create or verify the branch manually where allowed, then include the required worker-side worksite confirmation and branch switch authorization in the prompt.
-- If `send_message_to_thread` is unavailable, use the reporting fallback in `reporting.md`: require the worker to emit a `<codex_delegation>` envelope or `Scheduler Report:` block that the scheduler can consume through `read_thread`.
-- If `read_thread` is unavailable, require explicit worker reports in the current reachable channel before changing scheduler state.
-- If heartbeat automation is unavailable, maintain the compact heartbeat prompt as a scheduler-local checklist and report the liveness limitation; do not create a long-lived scheduler goal just to poll.
-- If a high-cost gate tool is unavailable, classify the failure as tool/permission/environment, preserve `waiting-scheduler-gate`, and either authorize an equivalent controlled path or report a scheduler blocker.
+- 如果 `create_thread` 不可用，将 stream 保持为 `planned`，回报 exact worker prompt、branch、worksite requirement 和 blocker；不要假装 worker 已存在。
+- 如果 branch/worktree binding 不可用，在允许时手动创建或验证 branch，然后在 prompt 中写入 worker-side worksite confirmation 和 branch switch authorization。
+- 如果 `send_message_to_thread` 不可用，使用 `reporting.md` 的 fallback：要求 worker 输出 `<codex_delegation>` envelope 或 `Scheduler Report:` block，供 scheduler 通过 `read_thread` 消费。
+- 如果 `read_thread` 不可用，在改变 scheduler state 前，必须要求 worker 在当前可达 channel 中显式回报。
+- 如果 heartbeat automation 不可用，把 compact heartbeat prompt 当作 scheduler-local checklist，并回报 liveness limitation；不要为了轮询而创建长期 scheduler goal。
+- 如果 high-cost gate tool 不可用，把失败分类为 tool/permission/environment，保持 `waiting-scheduler-gate`，再授权等价 controlled path 或回报 scheduler blocker。
 
-## Cross-Thread Commands
+## Cross-Thread Commands / 跨线程指令
 
-Use `send_message_to_thread` whenever a worker must act. A scheduler note in the scheduler thread is not a worker instruction.
+worker 必须行动时，使用 `send_message_to_thread`。写在 scheduler thread 里的本地判断不是 worker 指令。
 
-Good scheduler-local note:
+正确的 scheduler-local note：
 
 ```text
 Scheduler judgment:
@@ -173,7 +173,7 @@ T2 is waiting on the same hosted run. No worker message needed.
 Next: wait for the hosted run; do not rerun.
 ```
 
-Good worker message:
+正确的 worker message：
 
 ```text
 T2, scheduler decision:
@@ -184,16 +184,16 @@ Continue triage with these boundaries:
 - If it is a transient API race, rerun only the failed lightweight gate.
 ```
 
-Use the user's current language for scheduler-worker messages unless the scheduler explicitly changes language. Field names, commands, logs, and error text may stay in their source language.
+scheduler-worker message 默认使用用户当前语言；scheduler 明确切换语言时除外。字段名、命令、日志和错误文本可保留原语言。
 
-## Blocker And Dependency Triage
+## Blocker And Dependency Triage / 阻塞与依赖分类
 
-Worker block does not equal global block. Classify each blocker:
+worker block 不等于 global block。逐项分类：
 
-- Worker scope blocker: send a precise correction or recovery objective to the same worker.
-- Another worker owns the blocker: mark the blocked worker `waiting-on-worker`, activate or create the owner worker, and resume the blocked worker only after readback.
-- Shared contract/schema/policy blocker: appoint one owner, prohibit duplicate definitions, and gate downstream workers on the owner artifact.
-- Environment/tool/host transient: bound retry/readback; do not mark global failure until classified.
-- Gate/root-cause failure: stop high-cost retries and issue a narrow root-cause correction objective.
+- Worker scope blocker：向同一 worker 发送 precise correction 或 recovery objective。
+- Another worker owns the blocker：将被阻塞 worker 标为 `waiting-on-worker`，激活或创建 owner worker，readback 后再恢复被阻塞 worker。
+- Shared contract/schema/policy blocker：指定唯一 owner，禁止重复定义，下游 worker gate 在 owner artifact 上。
+- Environment/tool/host transient：做有界 retry/readback；分类前不要标记 global failure。
+- Gate/root-cause failure：停止高成本重试，发出 narrow root-cause correction objective。
 
-If every worker is idle, blocked, or waiting while the Top Goal is incomplete, the scheduler must intervene: unblock, create the next dependency-ready worker, authorize a gate, or report a real global blocker.
+如果所有 worker 都 idle、blocked 或 waiting，而 Top Goal 未完成，scheduler 必须介入：unblock、创建 next dependency-ready worker、授权 gate，或回报真实 global blocker。

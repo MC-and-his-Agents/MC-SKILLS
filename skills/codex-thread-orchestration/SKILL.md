@@ -1,67 +1,67 @@
 ---
 name: codex-thread-orchestration
-description: Scheduler and worker collaboration protocol for Codex thread orchestration. Use when Codex acts as a scheduler to split a global objective, create or resume worker threads, manage branches/worktrees, dispatch messages, run gates, and close out work; or when Codex acts as a worker to confirm its assigned worksite, create and verify a scoped goal, execute only its assigned scope, report scheduler-readable milestones, and wait for scheduler-owned gates.
+description: Codex 线程编排的 scheduler 与 worker 协作协议。用于 Codex 作为 scheduler 拆分全局目标、创建或恢复 worker、管理 branch/worktree、发送跨线程指令、运行 gate、完成 closeout；也用于 Codex 作为 worker 确认分配现场、创建并自检 scoped goal、只执行指定 scope、回报 scheduler-readable 关键节点，并等待 scheduler-owned gate。默认使用中文说明和回报，可根据用户语言适配；协议字段、状态枚举、工具名和结构化模板字段保持机器可读。
 ---
 
-# Codex Thread Orchestration
+# Codex 线程编排
 
 ## Overview
 
-Use this skill as a shared protocol between a scheduler thread and worker threads.
+本 skill 是 scheduler thread 与 worker thread 共享的协作协议。
 
-The scheduler owns the global objective: decomposition, worker creation, dependency order, gate ownership, merge/readback, and closeout. A worker owns scoped execution: confirm the assigned worksite, create its own goal, do only its assigned work, validate, and report milestones in a scheduler-readable form.
+scheduler 拥有全局目标：拆分 stream、创建 worker、管理依赖顺序、决定 gate owner、执行 merge/readback，并消费 closeout。worker 拥有局部执行：确认分配的 worksite，创建自己的 goal，只做指定 scope 内的工作，完成验证，并用 scheduler-readable 形式回报关键节点。
 
-This is project-agnostic. PR, issue, Work Item, release, review, and closeout mean the equivalent carrier in the active repository or host system.
+本协议与具体项目无关。PR、issue、Work Item、release、review、closeout 等词，均表示当前仓库或宿主系统中的等价事实载体。
 
-Language policy: keep protocol fields, states, and templates in concise English for machine readability; write scheduler-worker decisions, status summaries, and user-facing reports in the user's current language unless the scheduler explicitly switches language. Commands, logs, identifiers, and host field names may stay in their source language.
+默认语言：中文。用户使用其他语言，或 scheduler 明确要求切换语言时，面向用户和跨线程沟通应适配用户语言。协议字段、状态枚举、工具名、命令、日志、错误文本、XML/YAML/JSON 模板字段可保留英文，以保证机器可读和跨线程稳定。
 
-## Role Detection
+## Role Detection / 角色自检
 
-First decide your role in the current thread:
+先判断当前线程角色：
 
-- Scheduler: you were asked to coordinate multiple workers, branches, PRs, issues, release gates, merge readiness, or closeout.
-- Worker: you received a delegated objective, thread/worksite/branch identifiers, or instructions to report back to a scheduler.
-- Mixed/unclear: default to worker only if the prompt contains a concrete scoped objective and a scheduler identity; otherwise act as scheduler and build the dispatch plan before creating workers.
+- Scheduler：用户要求你协调多个 worker、branch、PR、issue、release gate、merge readiness 或 closeout。
+- Worker：你收到被委派的 objective、thread/worksite/branch 标识，或被要求向 scheduler 回报。
+- Mixed/unclear：只有 prompt 中同时包含具体 scoped objective 和 scheduler 身份时，才默认当 worker；否则先当 scheduler，创建 worker 前先完成调度计划。
 
-Do not let a worker infer the global plan from scratch. Do not let the scheduler pretend that a message written only in the scheduler thread has reached a worker.
+不要让 worker 从零推断全局计划。不要让 scheduler 把只写在 scheduler thread 里的话伪装成 worker 已收到的指令。
 
 ## Worker Quick Start
 
-1. Read `references/worker.md` and `references/reporting.md`.
-2. Confirm the assigned `scheduler_thread_id`, worker id/title, objective, branch, and worksite.
-3. Read-only check `pwd`, repo root, branch, HEAD, base, status, PR/task metadata, and issue/task state when applicable.
-4. If the worksite is consistent, create a goal in the worker thread using the exact delegated objective, then immediately run `get_goal` and report objective/status.
-5. Execute only the assigned scope. Report key milestones to the scheduler.
-6. If `gate_owner=scheduler`, stop at `waiting-scheduler-gate` after local validation, metadata readback, hosted checks, and finding disposition are clean. Do not run guardian, formal review, controlled merge, or closeout unless the scheduler explicitly authorizes the exact head.
+1. 读取 `references/worker.md` 和 `references/reporting.md`。
+2. 确认分配的 `scheduler_thread_id`、worker id/title、objective、branch 和 worksite。
+3. 只读检查 `pwd`、repo root、branch、HEAD、base、status、PR/task metadata，以及适用的 issue/task state。
+4. worksite 一致后，在 worker thread 中用原样 delegated objective 创建 goal，立即运行 `get_goal`，并回报 objective/status。
+5. 只执行分配 scope。关键节点必须向 scheduler 回报。
+6. 如果 `gate_owner=scheduler`，本地验证、metadata readback、hosted checks、finding disposition 全部干净后，停在 `waiting-scheduler-gate`。除非 scheduler 明确授权当前 head，否则不要运行 guardian、formal review、controlled merge 或 closeout。
 
 ## Scheduler Quick Start
 
-1. Read `references/scheduler.md`, `references/reporting.md`, and `references/heartbeat.md`.
-2. Define the Top Goal, completion criteria, constraints, streams, dependencies, branch names, allowed write paths, expected artifacts, gate owner, and first batch.
-3. Create only dependency-ready workers. Create or verify branch refs before using thread creation tools that require an existing branch.
-4. Register each worker's thread id, title, actual worksite, branch, head/base, state, blocker, next worker action, and next scheduler action.
-5. Use cross-thread messaging for worker actions. Keep a compact heartbeat for scheduler liveness.
-6. Own high-cost gates by default: guardian, formal review, semantic review, controlled merge, post-merge readback, and closeout consumption.
+1. 读取 `references/scheduler.md`、`references/reporting.md` 和 `references/heartbeat.md`。
+2. 定义 Top Goal、completion criteria、constraints、streams、dependencies、branch names、allowed write paths、expected artifacts、gate owner 和 first batch。
+3. 只创建 dependency-ready worker。使用需要既有 branch 的 thread 创建工具前，先创建或验证 branch ref。
+4. 登记每个 worker 的 thread id、title、actual worksite、branch、head/base、state、blocker、next worker action 和 next scheduler action。
+5. worker 需要行动时，使用跨线程消息。用压缩 heartbeat 保持 scheduler liveness。
+6. 默认由 scheduler 拥有高成本 gate：guardian、formal review、semantic review、controlled merge、post-merge readback 和 closeout consumption。
 
-## Core Invariants
+## 核心不变量
 
-- Scheduler owns global goal, dependency graph, gate policy, merge/readback, and closeout.
-- Worker owns scoped execution, local validation, PR/task metadata, and scheduler-readable reporting.
-- No scheduler-readable report, no complete.
-- The scheduler cannot create, read, edit, pause, resume, or unblock a worker goal. The worker must create and inspect its own goal.
-- Once a goal is `blocked` or `complete`, continuing requires a new goal with a new exact objective.
-- `waiting-hosted` is not blocked when the worker is waiting on the same hosted run or a bounded transient retry.
-- `waiting-scheduler-gate` is a scheduler action queue, not a worker blocker.
-- When `gate_owner=scheduler`, the worker stops at `waiting-scheduler-gate` and waits for scheduler gate execution or explicit authorization.
-- Do not write or checkout the main/project worktree from a worker unless the scheduler explicitly authorizes it.
-- Do not use raw host commands to bypass controlled merge, release, review, or approval wrappers.
+- Scheduler owns global goal、dependency graph、gate policy、merge/readback 和 closeout。
+- Worker owns scoped execution、local validation、PR/task metadata 和 scheduler-readable reporting。
+- No scheduler-readable report, no complete。
+- scheduler 不能替 worker 创建、读取、编辑、暂停、恢复或解除 goal blocked；worker 必须自己创建并自检 goal。
+- goal 一旦变成 `blocked` 或 `complete`，继续推进必须创建带有新 exact objective 的新 goal。
+- `waiting-hosted` 不是 blocked，前提是 worker 正在等待同一个 hosted run 或有界 transient retry。
+- `waiting-scheduler-gate` 是 scheduler action queue，不是 worker blocker。
+- 当 `gate_owner=scheduler` 时，worker 停在 `waiting-scheduler-gate`，等待 scheduler 执行 gate 或明确授权。
+- 除非 scheduler 明确授权，worker 不得写入或 checkout main/project worktree。
+- 不得用 raw host command 绕过 controlled merge、release、review 或 approval wrapper。
 
-## Reference Routing
+## Reference Routing / 引用路由
 
-- `references/scheduler.md`: load when acting as scheduler, creating/resuming workers, choosing model/reasoning level, handling unavailable orchestration tools, maintaining the dispatch table, naming branches, triaging blockers, or planning next batches.
-- `references/worker.md`: load when acting as worker, confirming a delegated worksite, creating a scoped goal, handling state transitions, or checking scope boundaries.
-- `references/reporting.md`: load for both roles before any milestone, blocker, gate wait, final completion, or cross-thread message.
-- `references/goal-lifecycle.md`: load when creating, completing, blocking, recovering, or explaining goals.
-- `references/heartbeat.md`: load when creating or updating scheduler heartbeat automations or compact scheduler prompts.
-- `references/gates-and-closeout.md`: load before guardian/review/merge/release gates, post-merge readback, closeout-only work, or repeated gate failures.
-- `references/templates.md`: load when drafting worker initial prompts, scheduler corrections, recovery prompts, fallback delegation envelopes, `waiting-scheduler-gate` reports, or heartbeat prompts.
+- `references/scheduler.md`：作为 scheduler、创建/恢复 worker、选择 model/reasoning、处理编排工具不可用、维护 dispatch table、命名 branch、triage blocker 或规划 next batch 时读取。
+- `references/worker.md`：作为 worker、确认 delegated worksite、创建 scoped goal、处理状态转换或检查 scope 边界时读取。
+- `references/reporting.md`：两个角色在任何 milestone、blocker、gate wait、final completion 或 cross-thread message 前都应读取。
+- `references/goal-lifecycle.md`：创建、complete、block、recover 或解释 goal 时读取。
+- `references/heartbeat.md`：创建或更新 scheduler heartbeat automation、压缩 scheduler prompt 时读取。
+- `references/gates-and-closeout.md`：guardian/review/merge/release gate、post-merge readback、closeout-only work 或重复 gate 失败前读取。
+- `references/templates.md`：起草 worker initial prompt、scheduler correction、recovery prompt、delegation fallback、`waiting-scheduler-gate` report 或 heartbeat prompt 时读取。

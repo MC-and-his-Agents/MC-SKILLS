@@ -1,96 +1,96 @@
 # Worker Protocol
 
-## Worksite Confirmation
+## Worksite Confirmation / 现场确认
 
-Start read-only. Confirm and report:
+第一步只读。确认并回报：
 
-- worker id, title, objective, concrete `scheduler_thread_id`.
-- `pwd`, repo root, and whether this is the assigned worker worksite.
-- branch, HEAD, base branch or equivalent target.
-- `git status` and dirty diff.
-- assigned branch and allowed write paths.
-- PR/task head/body metadata and issue/task state when applicable.
+- worker id、title、objective、具体 `scheduler_thread_id`。
+- `pwd`、repo root，以及当前目录是否为 assigned worker worksite。
+- branch、HEAD、base branch 或等价 target。
+- `git status` 和 dirty diff。
+- assigned branch 和 allowed write paths。
+- 适用时读取 PR/task head/body metadata 和 issue/task state。
 
-If the current `cwd` is a Codex-managed worktree and is detached at base/main, that can be normal initialization. Only switch to the assigned branch inside the worker worksite when the scheduler authorized it. Never switch or write the project/root main worktree unless explicitly authorized.
+如果当前 `cwd` 是 Codex-managed worktree 且 detached at base/main，这可能是正常初始化状态。只有 scheduler 授权时，才在 worker worksite 内切换 assigned branch。除非明确授权，绝不切换或写入 project/root main worktree。
 
-If any locator is missing or inconsistent, produce a scheduler-readable report and wait for correction. If the inconsistency prevents meaningful progress, end the current goal as `blocked` if one exists.
+任何 locator 缺失或不一致时，先生成 scheduler-readable report 并等待 correction。如果不一致导致无法有意义推进，且已有 goal，则将当前 goal 结束为 `blocked`。
 
-## Goal Start
+## Goal Start / 创建 Goal
 
-After worksite confirmation is clean, create the worker goal with the exact delegated objective. Do not paraphrase or expand it.
+worksite confirmation 干净后，用 exact delegated objective 创建 worker goal。不要改写、扩写或重新解释 objective。
 
-Immediately run `get_goal` and report:
+立即运行 `get_goal` 并回报：
 
-- confirmed worksite and head.
-- `get_goal.objective`.
-- `get_goal.status`.
-- whether `create_goal` failed or an old goal remained.
-- whether work can continue.
+- confirmed worksite 和 head。
+- `get_goal.objective`。
+- `get_goal.status`。
+- `create_goal` 是否失败，或是否残留 old goal。
+- 是否可以继续执行。
 
-Load `goal-lifecycle.md` before blocking, completing, or recovering a goal.
+block、complete 或 recover goal 前读取 `goal-lifecycle.md`。
 
-## Scope Boundaries
+## Scope Boundaries / 范围边界
 
-Do:
+应当：
 
-- execute only the assigned units and allowed write paths.
-- update PR/task metadata for the assigned scope.
-- run local and targeted validation appropriate to the diff.
-- classify hosted checks, tool failures, and findings before retrying.
-- report every key milestone through the reporting protocol.
+- 只执行 assigned units 和 allowed write paths。
+- 只更新 assigned scope 的 PR/task metadata。
+- 根据 diff 运行 local 和 targeted validation。
+- retry 前先分类 hosted checks、tool failures 和 findings。
+- 所有关键节点都按 reporting protocol 回报。
 
-Do not:
+不得：
 
-- change another worker's unit, branch, PR/task, carrier/state, or blocker.
-- expand scope to fix unrelated failures.
-- weaken policy, parser, review, head-binding, approval, merge, release, or gate semantics.
-- run high-cost guardian/formal review/semantic review/controlled merge/release unless the scheduler explicitly authorizes the current head.
-- use raw host commands to bypass controlled wrappers.
-- mark complete without a scheduler-readable final report.
+- 修改其他 worker 的 unit、branch、PR/task、carrier/state 或 blocker。
+- 扩大 scope 修 unrelated failures。
+- 弱化 policy、parser、review、head-binding、approval、merge、release 或 gate semantics。
+- 除非 scheduler 明确授权当前 head，否则运行 high-cost guardian/formal review/semantic review/controlled merge/release。
+- 使用 raw host commands 绕过 controlled wrappers。
+- 没有 scheduler-readable final report 就标记 complete。
 
-## Worker States
+## Worker States / Worker 状态
 
-Use these table/report states:
+使用这些 table/report states：
 
-- `confirming`: checking worksite and goal.
-- `active`: doing scoped work.
-- `waiting-hosted`: waiting for the same hosted run or bounded transient retry; usually not goal-blocked.
-- `waiting-scheduler-gate`: local validation, metadata readback, hosted checks, and finding disposition are clean; scheduler must run or authorize the next high-cost gate. This is not a worker blocker.
-- `waiting-scheduler`: scheduler decision is needed; if meaningful progress must pause, block the goal.
-- `waiting-on-worker`: another worker owns the needed unblock; block the goal and wait for scheduler resume.
-- `blocked`: goal is formally blocked or no meaningful progress is possible without scheduler/external change.
-- `complete`: scoped objective is complete and final evidence has been reported.
+- `confirming`：正在确认 worksite 和 goal。
+- `active`：正在执行 scoped work。
+- `waiting-hosted`：等待同一 hosted run 或有界 transient retry；通常不是 goal-blocked。
+- `waiting-scheduler-gate`：local validation、metadata readback、hosted checks 和 finding disposition 已干净；scheduler 必须运行或授权下一个 high-cost gate。这不是 worker blocker。
+- `waiting-scheduler`：需要 scheduler decision；如果必须暂停有意义推进，则 block goal。
+- `waiting-on-worker`：另一个 worker 拥有 unblock；block goal 并等待 scheduler resume。
+- `blocked`：goal 已正式 blocked，或没有 scheduler/external change 就无法继续有意义推进。
+- `complete`：scoped objective 已完成，且 final evidence 已回报。
 
-These states are scheduler table states, not always goal API states. Use the goal API only according to `goal-lifecycle.md`.
+这些是 scheduler table states，不总是 goal API states。goal API 只按 `goal-lifecycle.md` 使用。
 
-## Required Reports
+## Required Reports / 必要回报
 
-Report to the scheduler when:
+以下节点必须向 scheduler 回报：
 
-- worksite plus goal self-check completes.
-- local validation passes.
-- PR/task is created or updated and head/body/payload metadata readback aligns.
-- hosted checks are pending, in progress, passing, or failing after classification.
-- transient API/transport issues are classified and bounded.
-- guardian/review finding is fixed, including root cause, fix scope, same-class search, targeted validation, new head, and PR body status.
-- entering `waiting-scheduler-gate`.
-- needing a scheduler decision.
-- about to mark the goal `blocked` or `complete`.
+- worksite plus goal self-check 完成。
+- local validation 通过。
+- PR/task 创建或更新，且 head/body/payload metadata readback 对齐。
+- hosted checks pending、in progress、passing 或 failing after classification。
+- transient API/transport issue 已分类且有界。
+- guardian/review finding 已修复，包括 root cause、fix scope、same-class search、targeted validation、new head 和 PR body status。
+- 进入 `waiting-scheduler-gate`。
+- 需要 scheduler decision。
+- 即将将 goal 标记为 `blocked` 或 `complete`。
 
-If `gate_owner=scheduler`, the normal local completion state is `waiting-scheduler-gate`, not merge or final complete.
+如果 `gate_owner=scheduler`，正常本地完成态是 `waiting-scheduler-gate`，不是 merge 或 final complete。
 
-## Read-Only Explorers
+## Read-Only Explorers / 只读 Explorer
 
-A worker may use read-only explorer subagents when the environment supports them, for code entry discovery, implementation survey, tests/logs review, fixture/schema lookup, or local risk review.
+环境支持时，worker 可使用只读 explorer subagent，用于 code entry discovery、implementation survey、tests/logs review、fixture/schema lookup 或 local risk review。
 
-Read-only explorer boundaries:
+只读 explorer 边界：
 
-- no file changes, commits, pushes, PR/issue edits, merge, release, or closeout.
-- no scope/objective/gate change.
-- no independent delivery responsibility.
-- scheduler tracks only the worker; the worker summarizes explorer findings.
+- 不改文件、不提交、不推送、不编辑 PR/issue、不执行 merge/release/closeout。
+- 不改变 scope、objective 或 gate strategy。
+- 不承担独立交付责任。
+- scheduler 只追踪 worker；worker 摘要 explorer findings。
 
-Report explorer use at the next milestone:
+下一次 milestone 回报 explorer 使用：
 
 ```text
 Used read-only explorer:
@@ -100,4 +100,4 @@ Used read-only explorer:
 - scope changed: no
 ```
 
-Ask the scheduler before using a nested agent that writes files, changes host state, owns an implementation slice, changes scope/gate strategy, or may run long enough to obscure worker status.
+以下 nested agent 必须先请求 scheduler 授权：会写文件、改变 host state、拥有 implementation slice、改变 scope/gate strategy，或运行时间足以让 worker 状态不清晰。

@@ -1,14 +1,14 @@
 # Scheduler Heartbeat
 
-Use heartbeat automation to keep the scheduler alive without a long-lived scheduler goal.
+用 heartbeat automation 保持 scheduler 活性，避免创建长期 scheduler goal。
 
-## When To Use
+## When To Use / 何时使用
 
-Create or update a heartbeat when the scheduler is coordinating workers across hosted checks, gate waits, merges, dependencies, or closeout. Delete it when the Top Goal is complete or no scheduled wakeup is useful.
+scheduler 需要跨 hosted checks、gate waits、merge、dependencies 或 closeout 协调 worker 时，创建或更新 heartbeat。Top Goal 完成，或不再需要定时唤醒时，删除 heartbeat。
 
-Do not store the full dispatch table in the heartbeat. Store only the facts needed for the next wakeup, and keep the full table in the scheduler thread, issue/PR comment, project carrier, or other authoritative record.
+不要把完整 dispatch table 塞进 heartbeat。heartbeat 只保留下一次唤醒必须消费的事实；完整表保留在 scheduler thread、issue/PR comment、project carrier 或其他权威记录中。
 
-## Compact Prompt Skeleton
+## Compact Prompt Skeleton / 压缩 Prompt 骨架
 
 ```text
 You are the scheduler thread. Do not create a scheduler active goal.
@@ -60,31 +60,31 @@ Heartbeat Action:
 6. Final readback issue / PR / main or equivalent target state.
 ```
 
-## Update Rules
+## Update Rules / 更新规则
 
-Rewrite the heartbeat prompt after every batch merge, closeout, worker retirement, major blocker classification, or dependency unlock.
+每次 batch merge、closeout、worker retirement、major blocker classification 或 dependency unlock 后，重写 heartbeat prompt。
 
-Keep:
+保留：
 
-- active/waiting/blocked workers, usually 1-4.
-- next scheduler action for each current worker.
-- next worker action only when the worker needs an actual message.
-- shared contract/schema/metadata ownership.
-- gate owner and forbidden scope expansion.
+- active/waiting/blocked workers，通常 1-4 个。
+- 每个 current worker 的 next scheduler action。
+- 只有 worker 需要实际消息时，才保留 next worker action。
+- shared contract/schema/metadata ownership。
+- gate owner 和 forbidden scope expansion。
 
-Move completed workers to `Completed Readback`; do not leave them as current scheduling subjects.
+completed worker 移入 `Completed Readback`，不要继续作为 current scheduling subjects。
 
-If the heartbeat prompt is stale, update or delete the automation before continuing. Do not let an old prompt keep waking obsolete batches or worker ids.
+heartbeat prompt 过期时，先更新或删除 automation，再继续。不要让旧 prompt 持续唤醒旧 batch 或旧 worker id。
 
-## Heartbeat Action Rules
+## Heartbeat Action Rules / 唤醒动作规则
 
-On each wakeup:
+每次 wakeup：
 
-1. Decide whether the Top Goal is complete. If complete, produce final summary and delete unnecessary heartbeat.
-2. If incomplete, decide whether at least one worker is effectively progressing.
-3. If a worker is waiting on the same hosted run, record that scheduler judgment and avoid fake messages or unnecessary reruns.
-4. If a worker is `waiting-scheduler-gate`, the scheduler must run or authorize the next gate.
-5. If all workers are idle/blocked/waiting and the Top Goal is incomplete, pick the highest-priority blocker and act.
-6. If a worker must act, use cross-thread messaging.
-7. If resuming a blocked/complete worker, send a new exact objective and require `create_goal` plus `get_goal` self-check.
-8. Do not write a scheduler-thread reply that sounds like the worker has received it.
+1. 判断 Top Goal 是否 complete。若 complete，输出 final summary 并删除不必要 heartbeat。
+2. 若 incomplete，判断是否至少有一个 worker 在有效推进。
+3. worker 等待同一 hosted run 时，只记录 scheduler judgment，避免 fake messages 或不必要 reruns。
+4. worker 处于 `waiting-scheduler-gate` 时，scheduler 必须运行或授权 next gate。
+5. 所有 worker idle/blocked/waiting 且 Top Goal incomplete 时，选择最高优先级 blocker 并行动。
+6. worker 必须行动时，使用 cross-thread messaging。
+7. 恢复 blocked/complete worker 时，发送 new exact objective，并要求 `create_goal` + `get_goal` self-check。
+8. 不要写一个看起来像 worker 已收到的 scheduler-thread reply。
