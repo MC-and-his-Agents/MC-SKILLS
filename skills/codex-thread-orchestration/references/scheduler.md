@@ -150,7 +150,7 @@ model/reasoning 默认规则：
 - `send_message_to_thread`：发送任何需要 worker 行动的指令。
 - `read_thread`：读取 worker report 或 status summary；不要当作 goal API。
 - `handoff_thread`：恢复或迁移已有 worker；不要替代新 worker 创建。
-- heartbeat automation：在 hosted checks、gate waits 和 closeout 跨越时间时保持 scheduler liveness。
+- heartbeat automation：在 hosted checks、gate waits 和 closeout 跨越时间时保持 scheduler liveness；默认间隔为 15 分钟，等价 `FREQ=MINUTELY;INTERVAL=15`。
 
 兜底规则：
 

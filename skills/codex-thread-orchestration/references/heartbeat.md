@@ -6,7 +6,19 @@
 
 scheduler 需要跨 hosted checks、gate waits、merge、dependencies 或 closeout 协调 worker 时，创建或更新 heartbeat。Top Goal 完成，或不再需要定时唤醒时，删除 heartbeat。
 
+默认 heartbeat 间隔为 15 分钟。创建 automation 时使用等价于 `FREQ=MINUTELY;INTERVAL=15` 的 schedule；除非用户明确要求，或目标系统有更严格的时效约束，不要缩短为更高频轮询。
+
 不要把完整 dispatch table 塞进 heartbeat。heartbeat 只保留下一次唤醒必须消费的事实；完整表保留在 scheduler thread、issue/PR comment、project carrier 或其他权威记录中。
+
+推荐 automation 参数：
+
+```text
+kind: heartbeat
+destination: thread
+rrule: FREQ=MINUTELY;INTERVAL=15
+status: ACTIVE
+prompt: <compact heartbeat prompt>
+```
 
 ## Compact Prompt Skeleton / 压缩 Prompt 骨架
 
