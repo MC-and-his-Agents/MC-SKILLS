@@ -36,14 +36,25 @@ T1:
 - pr:
 - head_sha:
 - base_sha:
+- merge_base:
+- current_head_sha:
+- PR number/state/head/base:
+- issue state:
+- worker_state:
+- next_owner: scheduler | worker | replacement | external
+- next_action:
+- blocker_classification:
+- last_readback_at:
 - gate_owner: scheduler | worker-authorized
-- state: planned | confirming | active | waiting-hosted | waiting-scheduler-gate | waiting-scheduler | waiting-on-worker | worker-stalled | replacement-planned | replacement-active | scheduler-takeover-active | recovered-waiting-scheduler-gate | blocked | complete
+- state: planned | confirming | active | waiting-hosted | stopped_at_waiting_scheduler_gate | waiting-scheduler | waiting-on-worker | worker-stalled | replacement-planned | replacement-active | scheduler-controlled-takeover | recovered-waiting-scheduler-gate | blocked | complete
 - blocker:
 - next_worker_action:
 - next_scheduler_action:
 ```
 
 每次 worker report、hosted check readback、gate result、merge、blocker triage 和 closeout event 后都要更新。
+
+事实冲突优先级：live host/local git readback > repo carrier current files > newest scheduler-authored state > newest worker report > older heartbeat summary。旧 heartbeat 不得覆盖 newer readback。
 
 ## Stream Planning / 任务流规划
 
@@ -201,6 +212,18 @@ worker block 不等于 global block。逐项分类：
 
 ## Worker Stall / Worker 卡死判定
 
+## Waiting Scheduler Gate / Scheduler 强制接管
+
+worker 报 `waiting-scheduler-gate` 且 `next_owner=scheduler` 后，scheduler 必须：
+
+- 在 fact table 中把 `worker_state` 改为 `stopped_at_waiting_scheduler_gate`。
+- 不再把该 worker 描述为 `active`、`waiting-hosted` 或 `pending`。
+- 不得继续等待 worker。
+- 下一步只能是 scheduler gate、scheduler correction、scheduler controlled takeover 或 replacement worker。
+- heartbeat 必须跟踪 scheduler action，不得继续询问 worker 是否完成。
+
+## Worker Stall / Worker 卡死判定
+
 `worker-stalled` 表示 worker 已不能作为有效推进主体。它不是普通 waiting，也不是 worker blocker，而是 scheduler recovery action queue。
 
 任一组合稳定出现时，scheduler 必须标记 `worker-stalled`：
@@ -241,6 +264,7 @@ recovery_prompt:
 - 原 worker 标记 `worker-stalled`，不再作为当前调度主体。
 - 新 worker 使用 fresh base/main、明确 branch/worksite、exact recovery objective 和 allowed write paths。
 - 状态先设为 `replacement-planned`，创建并完成 worksite/goal self-check 后改为 `replacement-active`。
+- 创建成功时报告 `replacement-worker-created` 事件，并登记新 thread/worksite/head/base。
 - replacement objective 只覆盖恢复目标，例如 rebase、metadata repair、validation、PR body readback、push；不得扩大原 worker scope。
 - replacement 完成后进入 `recovered-waiting-scheduler-gate`，由 scheduler 运行或授权 gate。
 
@@ -254,4 +278,4 @@ recovery_prompt:
 - takeover objective 限于 recovery：rebase、metadata repair、validation、push、PR body readback。
 - 不扩大原 worker scope，不处理其他 unit，不绕过 controlled gate。
 
-接管期间 dispatch state 使用 `scheduler-takeover-active`。接管完成后必须重新验证、read back PR body/head/base、确认 hosted checks green，再进入 `recovered-waiting-scheduler-gate` 或 `waiting-scheduler-gate`，由 scheduler-owned gate 继续。
+接管期间 dispatch state 使用 `scheduler-controlled-takeover`。接管完成后必须重新验证、read back PR body/head/base、确认 hosted checks green，再进入 `recovered-waiting-scheduler-gate` 或 `waiting-scheduler-gate`，由 scheduler-owned gate 继续。

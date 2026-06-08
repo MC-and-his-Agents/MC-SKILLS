@@ -101,7 +101,7 @@ Report `recovered-waiting-scheduler-gate` when recovery is complete, head/base/b
 
 ```text
 Scheduler Report:
-State: scheduler-takeover-active
+State: scheduler-controlled-takeover
 Original worker: <worker_id / thread_id>
 Reason: worker-stalled
 Concurrent writes: <none confirmed>
@@ -112,6 +112,60 @@ Validation: <commands and result>
 PR body readback: <aligned / mismatch>
 Hosted checks: <green / pending / failed>
 Next scheduler action: <run scheduler-owned gate | create replacement | classify blocker>
+```
+
+## Fact Table Readback / 事实表读回
+
+```text
+Scheduler Fact Table:
+- worker_id:
+- thread_id:
+- worksite:
+- branch:
+- base_sha:
+- merge_base:
+- current_head_sha:
+- PR number/state/head/base:
+- issue state:
+- worker_state:
+- next_owner:
+- next_action:
+- blocker_classification:
+- last_readback_at:
+- fact_source_priority: live host/local git readback > repo carrier current files > newest scheduler-authored state > newest worker report > older heartbeat summary
+```
+
+## Head-Bound Artifact Refresh Report / Head 绑定刷新回报
+
+```text
+Scheduler Report:
+State: recovered-waiting-scheduler-gate
+Head: <current_head_sha>
+Base: <base_sha>
+PR headRefOid: <readback oid>
+PR body machine carrier head_sha: <readback sha>
+PR metadata preflight: <pass/fail>
+compare-body: <pass/fail>
+review artifact stale: <yes/no>
+hosted gate stale-run: <yes/no>
+head_bound_artifacts_refreshed: <yes/no>
+Next scheduler action: <run scheduler-owned gate | refresh artifacts | classify blocker>
+```
+
+## Hosted Failure Classification / Hosted 失败分类
+
+```text
+Scheduler Report:
+State: <waiting-scheduler | scheduler-controlled-takeover>
+Hosted checks: <failed check/run id>
+hosted_failure_classification: <carrier drift | shadow drift | review stale | PR metadata drift | host stale run | code semantic failure>
+Evidence:
+- local validation:
+- PR/body/head readback:
+- repo carrier/shadow readback:
+- review artifact head:
+Next scheduler action: <repair | rerun after repair | replacement worker | takeover>
+Rerun allowed before classification: no
 ```
 
 ## Delegation Fallback / 委派兜底
