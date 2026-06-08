@@ -46,7 +46,7 @@ T1:
 - blocker_classification:
 - last_readback_at:
 - gate_owner: scheduler | worker-authorized
-- state: planned | confirming | active | waiting-hosted | stopped_at_waiting_scheduler_gate | waiting-scheduler | waiting-on-worker | worker-stalled | replacement-planned | replacement-active | scheduler-controlled-takeover | recovered-waiting-scheduler-gate | blocked | complete
+- state: planned | confirming | active | waiting-hosted | stopped_at_waiting_scheduler_gate | waiting-scheduler | waiting-on-worker | worker-stalled | worker-stalled/abandoned | replacement-planned | replacement-active | scheduler-takeover-active | takeover-escalated | recovered-waiting-scheduler-gate | blocked | complete
 - blocker:
 - next_worker_action:
 - next_scheduler_action:
@@ -210,8 +210,6 @@ worker block 不等于 global block。逐项分类：
 
 如果所有 worker 都 idle、blocked 或 waiting，而 Top Goal 未完成，scheduler 必须介入：unblock、创建 next dependency-ready worker、授权 gate，或回报真实 global blocker。
 
-## Worker Stall / Worker 卡死判定
-
 ## Waiting Scheduler Gate / Scheduler 强制接管
 
 worker 报 `waiting-scheduler-gate` 且 `next_owner=scheduler` 后，scheduler 必须：
@@ -259,23 +257,49 @@ recovery_prompt:
 
 ## Replacement Worker / 替换 Worker
 
-选择 replacement worker 时：
+worker-stalled 后默认恢复路径是 replacement worker，而不是 scheduler 长期 takeover。选择 replacement worker 时：
 
-- 原 worker 标记 `worker-stalled`，不再作为当前调度主体。
+- 原 worker 标记 `worker-stalled/abandoned`，不再作为有效执行者。
 - 新 worker 使用 fresh base/main、明确 branch/worksite、exact recovery objective 和 allowed write paths。
 - 状态先设为 `replacement-planned`，创建并完成 worksite/goal self-check 后改为 `replacement-active`。
 - 创建成功时报告 `replacement-worker-created` 事件，并登记新 thread/worksite/head/base。
 - replacement objective 只覆盖恢复目标，例如 rebase、metadata repair、validation、PR body readback、push；不得扩大原 worker scope。
 - replacement 完成后进入 `recovered-waiting-scheduler-gate`，由 scheduler 运行或授权 gate。
+- replacement worker objective 必须包含 stalled worker id/thread、recovery reason、exact branch/worksite/base/head、allowed write paths、forbidden scope、validation requirements、`gate_owner=scheduler`、`report_to_thread_id=scheduler_thread_id`。
 
 ## Scheduler Controlled Takeover / Scheduler 受控接管
 
-只有同时满足以下条件，scheduler 才能接管正式 worksite：
+scheduler controlled takeover 只能用于短程恢复动作，默认目标是确认现场并准备 replacement worker。允许动作：
+
+- 判断并记录 `worker-stalled`。
+- 读取 PR/head/worktree/base/main 状态。
+- 确认没有并发写入。
+- 确认 worktree clean 且没有未处理 rebase/merge/cherry-pick。
+- 修正极小的机械状态，例如明显错误的本地状态标记或只读 readback 缺口。
+- 准备或创建 replacement worker。
+
+禁止 scheduler 长期执行 worker scope：
+
+- 大段文档或代码修改。
+- 多轮 rebase 冲突处理。
+- 完整 validation matrix。
+- PR body 大幅重写。
+- push 后等待 hosted checks。
+- review finding 修复。
+
+只有同时满足以下条件，scheduler 才能短程接管正式 worksite：
 
 - 确认没有 worker 或外部进程正在并发写入。
 - worktree clean，且没有未处理 rebase/merge/cherry-pick 状态。
 - branch/head/PR 与 scheduler readback 对齐。
-- takeover objective 限于 recovery：rebase、metadata repair、validation、push、PR body readback。
+- takeover objective 限于一次短步骤 recovery：readback、极小机械修正、replacement worker 准备。
 - 不扩大原 worker scope，不处理其他 unit，不绕过 controlled gate。
 
-接管期间 dispatch state 使用 `scheduler-controlled-takeover`。接管完成后必须重新验证、read back PR body/head/base、确认 hosted checks green，再进入 `recovered-waiting-scheduler-gate` 或 `waiting-scheduler-gate`，由 scheduler-owned gate 继续。
+Takeover escalation threshold：
+
+- 如果恢复动作超过一个短步骤，必须停止 takeover。
+- 如果需要语义判断、产生 commit、完整验证、push、等待 hosted checks、修 review finding，必须停止 takeover。
+- takeover 不能跨多个 heartbeat 延续为“scheduler 继续干活”。
+- 升级后 dispatch state 设为 `takeover-escalated`，下一步必须创建 replacement worker。
+
+接管期间 dispatch state 使用 `scheduler-takeover-active`。接管完成后，若只是短程确认/机械修正，可进入 `recovered-waiting-scheduler-gate` 或 `waiting-scheduler-gate`；一旦触发 escalation threshold，必须 `takeover-escalated -> replacement-planned`。replacement 创建后，scheduler 立即恢复 scheduler duties：更新 dispatch table、更新 heartbeat、等待 replacement report、运行 scheduler-owned gate/merge/readback、继续后续 batch scheduling。
