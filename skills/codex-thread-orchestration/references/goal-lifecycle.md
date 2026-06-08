@@ -57,11 +57,11 @@ worker 必须在确认 worksite 后自己创建 goal。objective 必须与 deleg
 ## Recovery Prompt / 恢复 Prompt
 
 ```text
-Your previous goal is blocked/complete. The API cannot resume or edit it.
-Create a new goal with this exact objective:
+你的 previous goal 已经 blocked/complete。goal API 不能恢复或编辑它。
+请用下面的 exact objective 创建新 goal：
 "<new exact objective>"
 
-After creation, run get_goal and report objective/status. Do not treat the old goal as active.
+创建后运行 get_goal，并回报 objective/status。不要把旧 goal 当作 active。
 ```
 
 ## Scheduler Implications / 对 Scheduler 的含义

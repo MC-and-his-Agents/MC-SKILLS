@@ -212,8 +212,8 @@ scheduler 发送后在 table 标记 `instruction-sent-awaiting-ack`。worker 的
 
 ```text
 Scheduler judgment:
-T2 is waiting on the same hosted run. No worker message needed.
-Next: wait for the hosted run; do not rerun.
+T2 正在等待同一个 hosted run。无需发送 worker message。
+Next: 等待该 hosted run；不要 rerun。
 ```
 
 正确的 worker message：
@@ -224,11 +224,11 @@ instruction_id: T2-correction-<timestamp>
 scheduler_thread_id: <scheduler_thread_id>
 report_to_thread_id: <scheduler_thread_id>
 expected_report_type: correction-result
-Continue triage with these boundaries:
-- Preserve fail-closed semantics.
-- Do not weaken stale review or head binding.
-- Confirm payload/body/head readback before metadata fixes.
-- If it is a transient API race, rerun only the failed lightweight gate.
+按以下边界继续 triage：
+- 保持 fail-closed semantics。
+- 不要弱化 stale review 或 head binding。
+- 修 metadata 前先确认 payload/body/head readback。
+- 如果是 transient API race，只 rerun failed lightweight gate。
 ```
 
 scheduler-worker message 默认使用用户当前语言；scheduler 明确切换语言时除外。字段名、命令、日志和错误文本可保留原语言。

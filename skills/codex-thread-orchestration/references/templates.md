@@ -1,9 +1,11 @@
 # Templates
 
+语言规则：模板里的自然语言默认写中文；字段名、状态枚举、工具名、命令和日志保持英文机器可读。复制模板时不要把整段回报改成英文。
+
 ## Worker Initial Prompt / Worker 初始 Prompt
 
 ```text
-Worker identity:
+Worker 身份:
 - worker id: <Tn>
 - worker_thread_id: <worker-thread-id if known>
 - scheduler_thread_id: <concrete scheduler thread id>
@@ -15,10 +17,10 @@ Worker identity:
 - title: [<Project/Round>][<Tn>][<units>][<PR/Task>] <short task>
 - model/reasoning: <default gpt-5.5 + high for complex/high-risk/shared-contract/gate work; lower only for low-risk read-only or mechanical work>
 
-Objective:
+目标:
 "<exact objective>"
 
-Assigned worksite:
+分配现场:
 - project/root: <project-root for repository identity only>
 - worker worksite: <actual worker cwd, or ask worker to read back cwd first>
 - assigned branch: <branch>
@@ -28,13 +30,13 @@ Assigned worksite:
 - forbidden paths/actions:
 - gate_owner: scheduler | worker-authorized
 
-First action:
-Read-only confirm worksite, branch, HEAD, base, status, PR/task metadata, and issue/task state. If the Codex-managed worker worksite is detached at base/main, this may be normal; switch to the assigned branch only inside the worker worksite and only if authorized here.
+第一步:
+只读确认 worksite、branch、HEAD、base、status、PR/task metadata 和 issue/task state。如果 Codex-managed worker worksite 处于 detached at base/main，这可能是正常初始化状态；只有本 prompt 明确授权时，才在 worker worksite 内切换到 assigned branch。
 
-If the worksite is consistent, create a goal with the exact objective above, immediately run get_goal, and report objective/status to scheduler_thread_id.
-First report must include `instruction_ack` with `instruction_id`, `report_id`, `worker_state`, `goal_status`, and `gate_state`.
+如果 worksite 一致，用上面的 exact objective 创建 goal，立即运行 get_goal，并把 objective/status 回报给 scheduler_thread_id。
+首个 report 必须包含 `instruction_ack`，以及 `instruction_id`、`report_id`、`worker_state`、`goal_status` 和 `gate_state`。
 
-Do not write project/root main worktree. Do not expand scope. Do not run guardian/formal review/controlled merge/closeout unless explicitly authorized for the current head.
+不要写入 project/root main worktree。不要扩大 scope。除非 scheduler 针对当前 head 明确授权，不要运行 guardian/formal review/controlled merge/closeout。
 ```
 
 ## Scheduler Correction Prompt / Scheduler 纠偏 Prompt
@@ -48,16 +50,16 @@ report_to_thread_id: <scheduler_thread_id>
 expected_report_type: instruction_ack_then_correction_result
 report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, mark instruction unacknowledged and recover>
 Current state: <state>
-Correction objective/boundary:
+纠偏目标/边界:
 - <specific correction>
 
-Do:
+执行:
 - <allowed actions>
 
-Do not:
+禁止:
 - <forbidden actions>
 
-Report back with:
+回报内容:
 - instruction_ack:
 - worksite/head:
 - validation:
@@ -77,11 +79,11 @@ report_to_thread_id: <scheduler_thread_id>
 expected_report_type: instruction_ack_then_new_goal_report
 report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, mark worker-stalled or create replacement>
 
-Your previous goal is blocked/complete. The API cannot resume or edit it.
-Create a new goal with this exact objective:
+你的 previous goal 已经 blocked/complete。goal API 不能恢复或编辑它。
+请用下面的 exact objective 创建新 goal：
 "<new exact objective>"
 
-After creation, run get_goal and report objective/status to report_to_thread_id. Include `instruction_ack`, `report_id`, `report_for_instruction_id`, `worker_state`, `goal_status`, and `gate_state`. Do not treat the old goal as active.
+创建后运行 get_goal，并把 objective/status 回报给 report_to_thread_id。回报必须包含 `instruction_ack`、`report_id`、`report_for_instruction_id`、`worker_state`、`goal_status` 和 `gate_state`。不要把旧 goal 当作 active。
 ```
 
 ## Recovery Checkpoint Record / 恢复检查点记录
@@ -103,7 +105,7 @@ recovery_prompt:
 ## Replacement Worker Prompt / 替换 Worker Prompt
 
 ```text
-Worker identity:
+Worker 身份:
 - worker id: <replacement id>
 - replaces worker id/thread_id: <stalled worker>
 - scheduler_thread_id: <scheduler thread id>
@@ -114,10 +116,10 @@ Worker identity:
 - report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, classify replacement startup failure>
 - title: [<Project/Round>][<replacement id>][Recovery][<PR/Task>] <short task>
 
-Objective:
+目标:
 "<exact recovery objective: rebase / metadata repair / validation / PR body readback / push only>"
 
-Recovery context:
+恢复上下文:
 - stalled_worker_id:
 - stalled_worker_thread_id:
 - recovery_reason:
@@ -126,15 +128,15 @@ Recovery context:
 - base:
 - head:
 
-Boundaries:
+边界:
 - state starts as replacement-planned, then replacement-active after worksite + goal self-check
 - allowed write paths:
 - forbidden: expand original scope, run guardian/formal review/controlled merge, modify unrelated units
 - validation requirements:
 - gate_owner: scheduler
 
-Report `recovered-waiting-scheduler-gate` when recovery is complete, head/base/body are read back, and hosted checks are green.
-Every report must include `report_id` and `report_for_instruction_id`.
+恢复完成、head/base/body 已 read back 且 hosted checks green 后，回报 `recovered-waiting-scheduler-gate`。
+每个 report 都必须包含 `report_id` 和 `report_for_instruction_id`。
 ```
 
 ## Instruction Ack / 指令 ACK
@@ -200,18 +202,18 @@ Next worker action: waiting
 Scheduler Report:
 State: pending-materialization-stalled
 pending_materialization_status: pending-materialization-stalled
-Requested worker:
+请求创建的 worker:
 - worker_id:
 - pending_worktree_id:
 - title:
 - branch:
 - base:
-Readback attempted:
+已尝试 readback:
 - thread search:
 - worksite search:
 - branch/head:
 - startup report:
-Reason: no readable worker thread/worksite after short readback
+原因: short readback 后没有 readable worker thread/worksite
 Heartbeat Decision:
 - heartbeat_decision: action_taken | global_blocker
 - action_taken: create_thread | create_replacement_worker | update_heartbeat | none
@@ -225,12 +227,12 @@ Next scheduler action: <recreate worker | recover worker | report tool blocker>
 Scheduler Report:
 State: scheduler-takeover-active
 Event: scheduler-controlled-takeover
-Original worker: <worker_id / thread_id>
-Reason: worker-stalled
-Concurrent writes: <none confirmed>
+原 worker: <worker_id / thread_id>
+原因: worker-stalled
+并发写入: <none confirmed>
 Worktree status: <clean, no rebase/merge/cherry-pick>
 Branch/head/PR alignment: <branch / head / base / PR>
-Recovery scope: <short readback / tiny mechanical state repair / replacement preparation only>
+恢复范围: <short readback / tiny mechanical state repair / replacement preparation only>
 Validation: <commands and result>
 PR body readback: <aligned / mismatch>
 Hosted checks: <green / pending / failed>
@@ -243,9 +245,9 @@ Next scheduler action: <run scheduler-owned gate | create replacement | classify
 Scheduler Report:
 State: takeover-escalated
 Event: takeover-escalated
-Original worker: <worker_id / thread_id>
-Escalation trigger: <needs commit | needs push | needs hosted checks wait | needs full validation | needs semantic fix | exceeds one short step>
-Completed scheduler readback:
+原 worker: <worker_id / thread_id>
+升级触发条件: <needs commit | needs push | needs hosted checks wait | needs full validation | needs semantic fix | exceeds one short step>
+已完成的 scheduler readback:
 - PR/head/worktree:
 - concurrent writes:
 - worktree clean:
@@ -261,10 +263,10 @@ State: worker-stalled/abandoned
 Event: worker-stalled-abandoned
 Worker: <worker_id>
 Thread: <thread_id>
-Last known worksite:
-Last known branch/head/base:
+最后已知 worksite:
+最后已知 branch/head/base:
 PR/task:
-Stall evidence:
+stall evidence:
 - latest turn inProgress with no output:
 - PR/head/base/updated_at stale:
 - worktree old head while base/main advanced:
@@ -327,13 +329,13 @@ Scheduler Report:
 State: <waiting-scheduler | scheduler-takeover-active | takeover-escalated>
 Hosted checks: <failed check/run id>
 hosted_failure_classification: <carrier drift | shadow drift | review stale | PR metadata drift | host stale run | code semantic failure>
-Evidence:
+证据:
 - local validation:
 - PR/body/head readback:
 - repo carrier/shadow readback:
 - review artifact head:
 Next scheduler action: <repair | rerun after repair | replacement worker | takeover>
-Rerun allowed before classification: no
+分类前允许 rerun: no
 ```
 
 ## Delegation Fallback / 委派兜底
@@ -395,10 +397,10 @@ Next worker action: waiting
 ## Heartbeat Prompt Skeleton / Heartbeat Prompt 骨架
 
 ```text
-You are the scheduler thread. Do not create a scheduler active goal.
+你是 scheduler thread。不要创建 scheduler active goal。
 
 Top Goal:
-<completion criteria, including merge/readback/closeout>
+<completion criteria，必须包含 merge/readback/closeout>
 
 Current Workers:
 - worker_id:
@@ -424,19 +426,19 @@ Facts Consumed Before This Heartbeat:
 - stale_heartbeat_corrected: yes|no
 
 Planned But Not Started:
-<unstarted items and start conditions>
+<未启动事项和启动条件>
 
 Completed Readback:
 <merged/closed/readback facts>
 
 Heartbeat Action:
-1. Read worker reports and host state.
-2. If waiting-scheduler-gate, run or authorize the exact next gate.
-3. If blocked, classify root cause and send a correction or new objective.
-4. If current batch is complete, create the next dependency-ready worker.
-5. If a pending worktree has no readable thread/worksite after short readback, mark pending-materialization-stalled and recreate/recover.
-6. If instruction-sent-awaiting-ack has no ack by this heartbeat, resend/correct routing/recover; do not mark active.
-7. If prompt is stale, update automation before more scheduling.
+1. 读取 worker reports 和 host state。
+2. 如果 worker 处于 waiting-scheduler-gate，运行或授权准确的 next gate。
+3. 如果 blocked，分类 root cause，并发送 correction 或 new objective。
+4. 如果当前 batch 已完成，创建下一个 dependency-ready worker。
+5. 如果 pending worktree 短轮询后没有 readable thread/worksite，标记 pending-materialization-stalled 并 recreate/recover。
+6. 如果 instruction-sent-awaiting-ack 到本轮仍无 ack，resend/correct routing/recover；不得标记 active。
+7. 如果 prompt stale，先更新 automation，再继续调度。
 
 Heartbeat Decision:
 - heartbeat_decision: action_taken | valid_wait | global_blocker

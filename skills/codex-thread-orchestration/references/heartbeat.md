@@ -2,6 +2,8 @@
 
 用 heartbeat automation 保持 scheduler 活性，避免创建长期 scheduler goal。
 
+语言规则：heartbeat prompt 的自然语言默认写中文；字段名、状态枚举、命令、日志和结构化键保持英文机器可读。
+
 ## When To Use / 何时使用
 
 scheduler 需要跨 hosted checks、gate waits、merge、dependencies 或 closeout 协调 worker 时，创建或更新 heartbeat。Top Goal 完成，或不再需要定时唤醒时，删除 heartbeat。
@@ -25,10 +27,10 @@ prompt: <compact heartbeat prompt>
 ## Compact Prompt Skeleton / 压缩 Prompt 骨架
 
 ```text
-You are the scheduler thread. Do not create a scheduler active goal.
+你是 scheduler thread。不要创建 scheduler active goal。
 
 Top Goal:
-<completion criteria, including merge/readback/closeout; not only implementation done>
+<完成条件，必须包含 merge/readback/closeout；不能只写 implementation done>
 
 Global Gate:
 - gate_owner:
@@ -78,21 +80,21 @@ Facts Consumed Before This Heartbeat:
 - stale_heartbeat_corrected: yes|no
 
 Planned But Not Started:
-<only unstarted items and start conditions>
+<只列未启动事项和启动条件>
 
 Completed Readback:
-<merged / closed / readback facts, one compact line each>
+<merged / closed / readback facts，每项一行压缩记录>
 
 Heartbeat Action:
-1. Read worker reports / PR / issue / task / base state.
-2. If a worker is waiting-scheduler-gate, scheduler runs or authorizes the exact next gate.
-3. If the current batch is complete and readback is clean, create the next dependency-ready worker.
-4. If a worker is blocked, classify root cause and send a precise correction or new objective.
-5. If a recovery/checkpoint prompt expired with no report or no fact change, mark worker-stalled and choose replacement/takeover.
-6. If a pending worktree has no readable thread/worksite after short readback, mark pending-materialization-stalled and recreate/recover; do not wait a full heartbeat.
-7. If instruction-sent-awaiting-ack has no ack by this heartbeat, resend/correct routing/recover; do not mark active.
-8. If this prompt is stale or target_thread_id is not scheduler_thread_id, update the automation before further scheduling.
-9. Final readback issue / PR / main or equivalent target state.
+1. 读取 worker report / PR / issue / task / base state。
+2. 如果 worker 处于 waiting-scheduler-gate，scheduler 运行或授权准确的 next gate。
+3. 如果当前 batch 已完成且 readback 干净，创建下一个 dependency-ready worker。
+4. 如果 worker blocked，分类 root cause，并发送精确 correction 或 new objective。
+5. 如果 recovery/checkpoint prompt 已过期且没有 report 或事实变化，标记 worker-stalled 并选择 replacement/takeover。
+6. 如果 pending worktree 短轮询后没有 readable thread/worksite，标记 pending-materialization-stalled 并 recreate/recover；不要等完整 heartbeat。
+7. 如果 instruction-sent-awaiting-ack 到本轮仍无 ack，resend/correct routing/recover；不得标记 active。
+8. 如果 prompt stale 或 target_thread_id 不是 scheduler_thread_id，先更新 automation，再继续调度。
+9. 最后 readback issue / PR / main 或等价 target state。
 
 Heartbeat Decision:
 - heartbeat_decision: action_taken | valid_wait | global_blocker
