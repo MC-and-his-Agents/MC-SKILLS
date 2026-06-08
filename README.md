@@ -13,6 +13,21 @@ assets and are not listed in the plugin marketplace.
 - [code-smell-decision](./skills/code-smell-decision/SKILL.md) - Discover code smells, collect engineering evidence, and decide whether to fix, defer, track as debt, accept, or escalate.
 - [codex-thread-orchestration](./skills/codex-thread-orchestration/SKILL.md) - Coordinate scheduler/worker Codex threads for scoped execution, reporting, gates, and closeout.
 
+## Local Source Checkout Sync
+
+For maintainers working from this local source checkout, changes merged to `main`
+can be exposed to the local Codex runtime with symlinks:
+
+```bash
+./scripts/install-local-skills.sh <skill-name>
+```
+
+This is a developer convenience for local source iteration, not the default
+installation path for general users. The script links selected
+`skills/*/SKILL.md` directories into `~/.codex/skills/<skill-name>` and validates
+the installed paths. Omit `<skill-name>` only when every local skill is ready to
+be linked.
+
 ## Plugins
 
 Installable plugins live under `plugins/`. Repo marketplace metadata is defined
