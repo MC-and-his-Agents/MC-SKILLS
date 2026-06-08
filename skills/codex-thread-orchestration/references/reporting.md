@@ -38,7 +38,7 @@ Worker: <worker_id>
 Thread: <worker_thread_id>
 Title: <standard title>
 Unit: <issue / PR / task / N/A>
-State: <active | waiting-hosted | waiting-scheduler-gate | stopped_at_waiting_scheduler_gate | waiting-scheduler | waiting-on-worker | worker-stalled | replacement-active | scheduler-controlled-takeover | recovered-waiting-scheduler-gate | blocked | complete>
+State: <active | waiting-hosted | waiting-scheduler-gate | stopped_at_waiting_scheduler_gate | waiting-scheduler | waiting-on-worker | worker-stalled | worker-stalled/abandoned | replacement-planned | replacement-active | scheduler-takeover-active | takeover-escalated | recovered-waiting-scheduler-gate | blocked | complete>
 Objective: <exact objective or short id>
 Worksite: <path>
 Branch: <branch>
@@ -51,7 +51,7 @@ Validation: <commands and pass/fail summary>
 Hosted checks: <pending/pass/fail with run ids if available>
 hosted_failure_classification: <carrier drift | shadow drift | review stale | PR metadata drift | host stale run | code semantic failure | N/A>
 head_bound_artifacts_refreshed: <yes | no | N/A>
-Event: <replacement-worker-created | N/A>
+Event: <replacement-worker-created | scheduler-controlled-takeover | takeover-escalated | worker-stalled-abandoned | N/A>
 Gate owner: <scheduler | worker-authorized>
 Gate status: <not-ready | ready-for-scheduler | authorized | passed | failed | N/A>
 Blocker: <none or classified root cause>
@@ -69,7 +69,7 @@ Risks: <remaining risk or none>
   <input>
   Worker: <worker_id>
   Unit: <issue / PR / task>
-  State: <active | waiting-hosted | waiting-scheduler-gate | stopped_at_waiting_scheduler_gate | worker-stalled | scheduler-controlled-takeover | recovered-waiting-scheduler-gate | blocked | complete>
+  State: <active | waiting-hosted | waiting-scheduler-gate | stopped_at_waiting_scheduler_gate | worker-stalled | worker-stalled/abandoned | scheduler-takeover-active | takeover-escalated | recovered-waiting-scheduler-gate | blocked | complete>
   PR: <url or N/A>
   Head: <head_sha>
   Base: <base_sha>

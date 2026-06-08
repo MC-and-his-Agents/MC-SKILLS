@@ -83,15 +83,26 @@ Worker identity:
 - worker id: <replacement id>
 - replaces worker id/thread_id: <stalled worker>
 - scheduler_thread_id: <scheduler thread id>
+- report_to_thread_id: <scheduler_thread_id>
 - title: [<Project/Round>][<replacement id>][Recovery][<PR/Task>] <short task>
 
 Objective:
 "<exact recovery objective: rebase / metadata repair / validation / PR body readback / push only>"
 
+Recovery context:
+- stalled_worker_id:
+- stalled_worker_thread_id:
+- recovery_reason:
+- branch:
+- worksite:
+- base:
+- head:
+
 Boundaries:
 - state starts as replacement-planned, then replacement-active after worksite + goal self-check
 - allowed write paths:
 - forbidden: expand original scope, run guardian/formal review/controlled merge, modify unrelated units
+- validation requirements:
 - gate_owner: scheduler
 
 Report `recovered-waiting-scheduler-gate` when recovery is complete, head/base/body are read back, and hosted checks are green.
@@ -101,17 +112,55 @@ Report `recovered-waiting-scheduler-gate` when recovery is complete, head/base/b
 
 ```text
 Scheduler Report:
-State: scheduler-controlled-takeover
+State: scheduler-takeover-active
+Event: scheduler-controlled-takeover
 Original worker: <worker_id / thread_id>
 Reason: worker-stalled
 Concurrent writes: <none confirmed>
 Worktree status: <clean, no rebase/merge/cherry-pick>
 Branch/head/PR alignment: <branch / head / base / PR>
-Recovery scope: <rebase / metadata repair / validation / push only>
+Recovery scope: <short readback / tiny mechanical state repair / replacement preparation only>
 Validation: <commands and result>
 PR body readback: <aligned / mismatch>
 Hosted checks: <green / pending / failed>
 Next scheduler action: <run scheduler-owned gate | create replacement | classify blocker>
+```
+
+## Scheduler Takeover Abort / Escalation Report / 接管中止回报
+
+```text
+Scheduler Report:
+State: takeover-escalated
+Event: takeover-escalated
+Original worker: <worker_id / thread_id>
+Escalation trigger: <needs commit | needs push | needs hosted checks wait | needs full validation | needs semantic fix | exceeds one short step>
+Completed scheduler readback:
+- PR/head/worktree:
+- concurrent writes:
+- worktree clean:
+Next scheduler action: create replacement worker
+Scheduler role restored: yes
+```
+
+## Worker Stalled Abandoned Record / 卡死 Worker 废弃记录
+
+```text
+Scheduler Report:
+State: worker-stalled/abandoned
+Event: worker-stalled-abandoned
+Worker: <worker_id>
+Thread: <thread_id>
+Last known worksite:
+Last known branch/head/base:
+PR/task:
+Stall evidence:
+- latest turn inProgress with no output:
+- PR/head/base/updated_at stale:
+- worktree old head while base/main advanced:
+Replacement:
+- replacement_worker_id:
+- replacement_thread_id:
+Current scheduler action: waiting for replacement report
 ```
 
 ## Fact Table Readback / 事实表读回
@@ -156,7 +205,7 @@ Next scheduler action: <run scheduler-owned gate | refresh artifacts | classify 
 
 ```text
 Scheduler Report:
-State: <waiting-scheduler | scheduler-controlled-takeover>
+State: <waiting-scheduler | scheduler-takeover-active | takeover-escalated>
 Hosted checks: <failed check/run id>
 hosted_failure_classification: <carrier drift | shadow drift | review stale | PR metadata drift | host stale run | code semantic failure>
 Evidence:
