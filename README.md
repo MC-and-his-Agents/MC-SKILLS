@@ -12,6 +12,7 @@ assets and are not listed in the plugin marketplace.
 - [write-a-goal](./skills/write-a-goal/SKILL.md) - Draft, refine, or set durable Codex goals.
 - [code-smell-decision](./skills/code-smell-decision/SKILL.md) - Discover code smells, collect engineering evidence, and decide whether to fix, defer, track as debt, accept, or escalate.
 - [codex-thread-orchestration](./skills/codex-thread-orchestration/SKILL.md) - Coordinate scheduler/worker Codex threads for scoped execution, reporting, gates, and closeout.
+- [codex-scheduler-watcher](./skills/codex-scheduler-watcher/SKILL.md) - Create meta-scheduler watcher automations that maintain coordination units, scheduler pools, and scheduler lifecycle without taking over worker or gate execution.
 
 ## Local Source Checkout Sync
 

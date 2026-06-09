@@ -11,6 +11,7 @@
 - [write-a-goal](./skills/write-a-goal/SKILL.md) - 起草、优化或设置可持续推进的 Codex goal。
 - [code-smell-decision](./skills/code-smell-decision/SKILL.md) - 发现代码坏味道，收集工程证据，并判断应立即修复、延后处理、记录技术债、接受现状或交给人工判断。
 - [codex-thread-orchestration](./skills/codex-thread-orchestration/SKILL.md) - 协调 scheduler/worker 线程，处理 scoped execution、关键回报、gate 和 closeout。
+- [codex-scheduler-watcher](./skills/codex-scheduler-watcher/SKILL.md) - 创建 meta-scheduler watcher automation，维护 coordination unit、scheduler pool 和 scheduler 生命周期，但不接管 worker 或 gate 执行。
 
 ## 本地源码同步
 
