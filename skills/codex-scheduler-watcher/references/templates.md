@@ -47,7 +47,7 @@ provider_gap:
 - missing_facts:
 - why_completion_predicate_cannot_be_proven:
 - minimum_user_input_needed:
-- recommended_next_step: provide_facts | authorize_planning_scheduler
+- recommended_next_step: provide_facts | run_separate_discovery
 ```
 
 ## Scheduler Initial Prompt / Scheduler 初始提示

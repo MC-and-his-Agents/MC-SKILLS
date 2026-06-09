@@ -141,11 +141,15 @@ provider_selection:
 
 - 不创建 watcher automation。
 - 不创建 scheduler pool。
+- 不创建 scheduler thread。
+- 不创建 worker。
 - 不创建多 scheduler。
+- 不运行 gate。
+- 不修改 host/repo state。
 - 明确告知用户当前条件不具备，并列出缺失 facts。
-- 请求用户补充最小 locator，或授权创建只读 planning scheduler。
+- 请求用户补充最小 locator，或另行启动不属于本 skill 范围的只读 discovery / 建图任务。
 
-只有用户明确授权，或补充事实足以定义 unit graph 与 completion predicate 后，才可以继续。
+只有补充事实足以定义 unit graph 与 completion predicate 后，才可以继续本 skill 后续流程。
 
 必须回报：
 
@@ -155,7 +159,5 @@ provider_gap:
 - missing_facts:
 - why_completion_predicate_cannot_be_proven:
 - minimum_user_input_needed:
-- recommended_next_step: provide_facts | authorize_planning_scheduler
+- recommended_next_step: provide_facts | run_separate_discovery
 ```
-
-如果用户授权 planning scheduler，它的 objective 只能是只读建立 unit graph、provider choice 和 completion predicate；不得创建 worker、运行 gate、修改 PR/issue/repo carrier 或启动 implementation scheduler。

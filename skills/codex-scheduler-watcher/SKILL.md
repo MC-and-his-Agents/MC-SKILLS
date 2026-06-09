@@ -42,6 +42,7 @@ watcher 拥有 coordination unit graph、scheduler pool、unit cursor、跨 sche
 - 如果 worker report 误发到 watcher，watcher 不得据此更新 unit state；只能原样转发给对应 scheduler，并要求 scheduler 修正 `report_to_thread_id`。
 - 如果 scheduler 缺失、不可读或生命周期卡住，watcher 创建 replacement scheduler 或请求用户介入；不要退化为亲自执行 scheduler scope。
 - 如果多个 scheduler 完成后需要收敛，watcher 创建 closeout / fan-in scheduler，而不是自己合并 closeout。
+- 如果 unit provider 事实不足，watcher 只回报 `provider_gap` 并停止；不要创建 watcher automation、scheduler pool、scheduler thread 或任何只读侦察线程。
 - 默认串行；证明独立后并行。无法证明 isolation、capacity 或 observability 时保持串行。
 
 ## 引用路由
