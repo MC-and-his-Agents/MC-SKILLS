@@ -29,7 +29,7 @@ watcher 拥有 coordination unit graph、scheduler pool、unit cursor、跨 sche
 4. 建立 scheduler pool：记录每个 unit 的 scheduler thread、heartbeat、owned paths、dependencies、state、next action。
 5. 判断是否并行创建多个 scheduler：读取 `references/parallel-scheduling.md`。不使用固定数量上限，必须用 isolation、capacity 和 observability 证明。
 6. 创建或更新 watcher automation：读取 `references/watcher-automation.md` 和 `references/templates.md`。
-7. 创建 scheduler 时，prompt 必须要求 scheduler 使用 `$codex-thread-orchestration`，并创建自己的 scheduler heartbeat。
+7. 创建 scheduler 时，prompt 必须要求 scheduler 使用 `$codex-thread-orchestration`，包含 `watcher_instruction_id`，并创建自己的 scheduler heartbeat。
 
 ## 核心不变量
 
@@ -39,6 +39,9 @@ watcher 拥有 coordination unit graph、scheduler pool、unit cursor、跨 sche
 - Watcher 可以创建多个 scheduler thread，但必须先证明 unit 独立、ownership 隔离、gate/merge lane 可控、heartbeat 可观测、恢复能力足够。
 - Watcher 不直接创建 worker，不给 worker 下指令，不消费 worker report，不跑 guardian/review/controlled merge，不修 PR finding，不写业务代码。
 - Watcher 只消费 scheduler-level report：scheduler active、blocked、stalled、complete、final closeout/readback 或 scheduler missing。
+- No scheduler ACK, no active。watcher 给 scheduler 的 initial/replacement/correction 指令必须有 `watcher_instruction_id`；scheduler 回 `scheduler_ack` 前，watcher 只能标记 `scheduler-instruction-sent-awaiting-ack`，不能标记 `scheduler-active`。
+- No watcher report receipt, no unit transition。watcher 消费 scheduler report 后必须记录 `watcher_report_consumed`；未消费前不得把 scheduler report 当成已经更新了 scheduler pool 或 unit state。
+- No bidirectional thread IDs, no scheduler coordination。watcher 必须登记 `watcher_thread_id` 和 `scheduler_thread_id`；scheduler 必须确认 `watcher_thread_id` 与 `report_to_watcher_thread_id`。任一方向缺失时只能标记 `scheduler-routing-missing` 或 `scheduler-instruction-sent-awaiting-ack`。
 - 如果 worker report 误发到 watcher，watcher 不得据此更新 unit state；只能原样转发给对应 scheduler，并要求 scheduler 修正 `report_to_thread_id`。
 - 如果 scheduler 缺失、不可读或生命周期卡住，watcher 创建 replacement scheduler 或请求用户介入；不要退化为亲自执行 scheduler scope。
 - 如果多个 scheduler 完成后需要收敛，watcher 创建 closeout / fan-in scheduler，而不是自己合并 closeout。

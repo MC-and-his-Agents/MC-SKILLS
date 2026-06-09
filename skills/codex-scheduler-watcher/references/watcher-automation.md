@@ -1,4 +1,4 @@
-# Watcher Automation / 守望自动化
+# Watcher Automation / 调度线程编排自动化
 
 ## Purpose / 用途
 
@@ -7,8 +7,10 @@ watcher automation 用于定时唤醒 meta-scheduler watcher，维护 scheduler 
 watcher wakeup 只做 scheduler lifecycle 判断：
 
 - scheduler 是否存在。
+- scheduler 是否 ACK 了最新 `watcher_instruction_id`。
 - scheduler heartbeat 是否挂对线程。
 - scheduler 是否 active、blocked、stalled 或 complete。
+- scheduler report 是否已被 watcher 消费并更新 pool。
 - 是否有 unit ready 可以创建 scheduler。
 - 是否需要通知用户。
 
@@ -35,7 +37,7 @@ watcher wakeup 只做 scheduler lifecycle 判断：
 
 频率选择必须写进 watcher prompt 的 `watcher_cadence_reason`。
 
-## Watcher Decision Contract / 守望决策契约
+## Watcher Decision Contract / 编排决策契约
 
 每次 wakeup 必须输出：
 
@@ -45,6 +47,8 @@ Watcher Decision:
 - action_taken:
 - valid_wait_reason:
 - scheduler_pool_subject:
+- unacked_scheduler_instructions:
+- scheduler_reports_consumed:
 - global_blocker:
 - notify_user:
 - next_owner:
@@ -58,11 +62,26 @@ Watcher Decision:
 - 创建 replacement scheduler。
 - 更新 watcher prompt。
 - 更新 scheduler pool。
+- 记录 `watcher_report_consumed`。
 - 转发误发 worker report 给 scheduler。
 - 标记 scheduler complete/stalled/retired。
 - 切换 unit cursor。
 
-有效 `valid_wait` 必须证明至少一个 scheduler 仍在有效推进，或 watcher 正在等待明确外部事实。旧 watcher summary、不可读 scheduler、无 heartbeat target readback 都不是合法等待对象。
+有效 `valid_wait` 必须证明至少一个 scheduler 仍在有效推进，或 watcher 正在等待明确外部事实。旧 watcher summary、未 ACK 的 scheduler instruction、未消费的 scheduler report、不可读 scheduler、无 heartbeat target readback 都不是合法等待对象。
+
+## ACK And Report Freshness / ACK 与回报新鲜度
+
+每次 wakeup 必须先检查：
+
+- latest `watcher_instruction_id` 是否已有 `scheduler_ack`。
+- `scheduler_ack.watcher_thread_id` 和 `report_to_watcher_thread_id` 是否等于当前 watcher thread。
+- 是否存在比 watcher prompt 更新的 scheduler report。
+- scheduler report 是否已记录 `watcher_report_consumed`。
+- scheduler pool 是否仍引用旧 `scheduler_report_id`、旧 head/base 或旧 heartbeat target。
+
+如果 scheduler 未 ACK，状态保持 `scheduler-instruction-sent-awaiting-ack`，本轮只能修正路由、重发指令、创建 replacement scheduler，或记录 global blocker。不得把它写成 `scheduler-active`。
+
+如果 scheduler report 未消费，必须先记录 `watcher_report_consumed` 并更新 scheduler pool，再判断 unit state、parallel decision 或 replacement。旧 watcher prompt 不得覆盖更新的 scheduler report。
 
 ## Misrouted Worker Reports / 误路由的 Worker 回报
 

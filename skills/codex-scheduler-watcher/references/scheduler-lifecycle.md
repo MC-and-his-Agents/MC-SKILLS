@@ -6,6 +6,8 @@
 scheduler_state:
 - planned
 - ready
+- scheduler-instruction-sent-awaiting-ack
+- scheduler-routing-missing
 - scheduler-active
 - scheduler-blocked
 - scheduler-stalled
@@ -29,7 +31,9 @@ scheduler_state:
 - owned paths/carriers/contracts。
 - merge lane plan。
 - scheduler model/reasoning policy。
-- watcher thread id 或 watcher report path。
+- watcher thread id 和 `report_to_watcher_thread_id`。
+- 唯一 `watcher_instruction_id`，格式建议 `<unit-id>-scheduler-<YYYYMMDDHHMM>`。
+- `expected_scheduler_report_type` 和 `ack_deadline_or_next_wakeup_decision`。
 - 要求 scheduler 读取 `$codex-thread-orchestration`。
 - 要求 scheduler 创建自己的 scheduler heartbeat。
 
@@ -37,9 +41,60 @@ scheduler_state:
 
 - scheduler_thread_id。
 - scheduler title。
+- `scheduler_ack` 或 routing-missing report。
 - scheduler heartbeat id 和 target。
 - scheduler startup dispatch table。
 - scheduler 是否只处理 assigned unit。
+
+创建请求发出后，scheduler pool 先标记 `scheduler-instruction-sent-awaiting-ack`。收到 `scheduler_ack` 前，不得标记 `scheduler-active`，不得把“thread 已创建”当成“scheduler 已理解并开始执行”。如果下一次 watcher wakeup 仍无 ACK，必须重发/修正路由、创建 replacement scheduler，或记录真实 tool/global blocker。
+
+## Watcher-Scheduler Message Contract / 调度线程通信契约
+
+所有需要 scheduler 行动的 initial、replacement、correction prompt 都必须包含：
+
+```text
+watcher_instruction_id:
+supersedes_watcher_instruction_id: <id or N/A>
+watcher_thread_id:
+scheduler_thread_id: <known id or scheduler fills in scheduler_ack>
+report_to_watcher_thread_id:
+expected_scheduler_report_type:
+ack_deadline_or_next_wakeup_decision:
+```
+
+scheduler 首次回应必须包含：
+
+```text
+scheduler_ack:
+- scheduler_thread_id:
+- watcher_thread_id:
+- watcher_instruction_id:
+- accepted: yes|no
+- routing_ok: yes|no
+- effective_unit_id:
+- first_action:
+```
+
+如果缺少 `watcher_thread_id`、`report_to_watcher_thread_id`、`watcher_instruction_id` 或 `expected_scheduler_report_type`，scheduler 必须回报 `scheduler-routing-missing`，不要创建 worker 或进入 active 调度。
+
+## Scheduler Report Consumption / 调度回报消费
+
+watcher 读取 scheduler report 后，必须在 watcher thread、scheduler pool 或 unit graph 中记录：
+
+```text
+watcher_report_consumed:
+- watcher_thread_id:
+- scheduler_thread_id:
+- scheduler_report_id:
+- report_for_watcher_instruction_id:
+- report_state:
+- consumed_at:
+- pool_updated: yes|no
+- unit_state_transition:
+- next_owner:
+```
+
+没有 `watcher_report_consumed` 时，不得把 scheduler report 视为已经驱动 scheduler pool 或 unit state transition。若 report 缺 `scheduler_report_id` 或 `report_for_watcher_instruction_id`，watcher 可以消费 live facts，但必须标记 `report_id_missing`，并在下一条 correction 中要求 scheduler 补齐。
 
 ## Replacement Scheduler / 替换调度器
 

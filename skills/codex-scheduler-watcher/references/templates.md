@@ -19,6 +19,10 @@ unit_graph:
   state:
   scheduler_thread_id:
   scheduler_heartbeat_id:
+  last_watcher_instruction_id:
+  awaiting_scheduler_ack_for:
+  last_scheduler_report_id:
+  last_scheduler_report_consumed_at:
   next_owner:
   next_action:
 ```
@@ -67,9 +71,13 @@ unit:
 - upstream_source_locator:
 - completion_predicate:
 
-scheduler_thread_id:
+scheduler_thread_id: <created thread id if known; otherwise fill in scheduler_ack>
 watcher_thread_id:
-report_to_watcher:
+report_to_watcher_thread_id:
+watcher_instruction_id:
+supersedes_watcher_instruction_id: <id or N/A>
+expected_scheduler_report_type:
+ack_deadline_or_next_wakeup_decision:
 
 dependencies:
 owned_paths:
@@ -79,11 +87,44 @@ merge_lane:
 forbidden_scope:
 
 first required response:
+0. 输出 `scheduler_ack`，确认 watcher/scheduler 双向 thread id 和 `watcher_instruction_id`。
 1. 读取 repo/host live facts。
 2. 输出 dispatch table。
 3. 创建 scheduler heartbeat，并 read back target。
 4. 只创建 dependency-ready worker。
 5. 所有 worker objective 必须包含 scheduler_thread_id、report_to_thread_id、instruction_id、expected_report_type。
+```
+
+## Scheduler ACK / Scheduler 确认回报
+
+```text
+scheduler_ack:
+- scheduler_thread_id:
+- watcher_thread_id:
+- report_to_watcher_thread_id:
+- watcher_instruction_id:
+- accepted: yes|no
+- routing_ok: yes|no
+- effective_unit_id:
+- first_action:
+```
+
+## Scheduler-Level Report / Scheduler 级回报
+
+```text
+Scheduler Report:
+- scheduler_report_id:
+- report_for_watcher_instruction_id:
+- scheduler_thread_id:
+- watcher_thread_id:
+- unit_id:
+- scheduler_state: scheduler-active | scheduler-blocked | scheduler-stalled | scheduler-complete | closeout-needed
+- current_head_or_carrier:
+- completion_predicate_status:
+- scheduler_heartbeat_target_readback:
+- action_taken:
+- next_owner:
+- next_action:
 ```
 
 ## Watcher Heartbeat Prompt / Watcher 唤醒提示
@@ -105,6 +146,12 @@ unit_graph:
 scheduler_pool:
 <压缩 scheduler pool>
 
+communication_state:
+- unacked_scheduler_instructions:
+- newest_scheduler_reports:
+- scheduler_reports_consumed:
+- stale_pool_entries:
+
 parallel_policy:
 - 默认串行；证明独立后并行。
 - 不使用固定 scheduler 数量上限。
@@ -114,17 +161,20 @@ misroute_policy:
 - worker report 到 watcher 时，不消费，只转发给 scheduler。
 
 next wakeup actions:
-1. 读取 active scheduler reports / heartbeat targets。
-2. 读取 live unit completion facts。
-3. 更新 scheduler pool。
-4. 判断 ready units 是否可并行启动。
-5. 创建/替换/退休 scheduler，或记录 valid_wait/global_blocker。
+1. 读取 scheduler ACK / scheduler reports / heartbeat targets。
+2. 对未消费 scheduler report 记录 `watcher_report_consumed`。
+3. 读取 live unit completion facts。
+4. 更新 scheduler pool。
+5. 判断 ready units 是否可并行启动。
+6. 创建/替换/退休 scheduler，或记录 valid_wait/global_blocker。
 
 Watcher Decision:
 - watcher_decision: action_taken | valid_wait | notify_user | global_blocker | complete
 - action_taken:
 - valid_wait_reason:
 - scheduler_pool_subject:
+- unacked_scheduler_instructions:
+- scheduler_reports_consumed:
 - global_blocker:
 - notify_user:
 - next_owner:
@@ -141,6 +191,10 @@ replacement_reason:
 abandoned_scheduler_thread_id:
 unit_id:
 unit_title:
+watcher_thread_id:
+report_to_watcher_thread_id:
+watcher_instruction_id:
+expected_scheduler_report_type:
 
 live_facts:
 - issues:
@@ -159,7 +213,7 @@ forbidden_scope:
 - 不消费 watcher 误收的 worker report，除非通过 scheduler report protocol。
 - 不扩展 completion predicate。
 
-必须读取 $codex-thread-orchestration，并创建自己的 scheduler heartbeat。
+必须先输出 `scheduler_ack`，再读取 $codex-thread-orchestration，并创建自己的 scheduler heartbeat。
 ```
 
 ## Watcher Readback Report / Watcher 读回报告
@@ -170,6 +224,9 @@ Watcher Report:
 - watcher_thread_id:
 - unit_graph_version:
 - scheduler_pool_version:
+- watcher_instruction_id:
+- scheduler_ack_status:
+- scheduler_reports_consumed:
 - active_schedulers:
 - completed_units:
 - blocked_units:
