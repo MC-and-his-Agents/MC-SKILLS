@@ -191,10 +191,13 @@ replacement_reason:
 abandoned_scheduler_thread_id:
 unit_id:
 unit_title:
+scheduler_thread_id: <created thread id if known; otherwise fill in scheduler_ack>
 watcher_thread_id:
 report_to_watcher_thread_id:
 watcher_instruction_id:
+supersedes_watcher_instruction_id: <id or N/A>
 expected_scheduler_report_type:
+ack_deadline_or_next_wakeup_decision:
 
 live_facts:
 - issues:

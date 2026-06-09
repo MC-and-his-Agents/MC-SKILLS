@@ -68,6 +68,7 @@ scheduler 首次回应必须包含：
 scheduler_ack:
 - scheduler_thread_id:
 - watcher_thread_id:
+- report_to_watcher_thread_id:
 - watcher_instruction_id:
 - accepted: yes|no
 - routing_ok: yes|no
