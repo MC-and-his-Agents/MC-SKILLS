@@ -2,13 +2,14 @@
 
 ## Principle / 原则
 
-不设置固定 scheduler 数量上限。并发量由 readiness、ownership isolation、gate pressure、merge lane、heartbeat observability 和 recovery capacity 决定。
+不设置固定 scheduler 数量上限。并发量由 candidate scope readiness、hard dependency consumption、ownership isolation、gate pressure、merge lane、heartbeat observability 和 recovery capacity 决定。
 
 核心规则：
 
 ```text
-默认串行；证明独立后并行。
-无法证明 isolation、capacity 或 observability 时保持串行。
+默认串行；分类 dependency edge 并证明候选 scope 可启动后并行。
+不要求 unit 完全独立；未满足 hard dependency 只阻塞消费它的 scoped subset。
+无法证明 dependency type、blocked scope、isolation、capacity 或 observability 时保持串行。
 ```
 
 ## Parallel Decision / 并行决策
@@ -18,7 +19,11 @@
 ```text
 parallel_decision:
 - candidate_units:
+- candidate_scopes:
 - dependency_status:
+- dependency_edges:
+- unblocked_scope:
+- blocked_scope:
 - ownership_isolation:
 - shared_contract_status:
 - gate_capacity:
@@ -33,7 +38,9 @@ parallel_decision:
 
 可以并行创建 scheduler 的信号：
 
-- units 之间没有硬依赖。
+- 候选 scope 不消费未满足的 hard dependency。
+- unit 仍有未满足 hard dependency 时，`blocked_scope` 与 `unblocked_scope` 已明确，且 scheduler objective 排除 blocked scope。
+- 软依赖和 convergence 依赖已分类，并有后续 readback、refresh 或 fan-in plan。
 - write paths、branch、PR、worktree 隔离。
 - 不共享未冻结 schema、contract、metadata carrier、status/shadow truth。
 - shared contract 或前置 shape owner 已 merged/readback。
@@ -47,6 +54,9 @@ parallel_decision:
 
 必须降低并发或串行的信号：
 
+- dependency source 不清楚，无法判断 hard/soft/convergence。
+- 未满足 hard dependency 覆盖整个候选 scope。
+- 无法说明 blocked scope、unblocked scope、owner unit 或 readiness predicate。
 - 多个 units 写同一 carrier/status/shadow/progress 文件。
 - 多个 units 共享未冻结 schema、fixture naming、API contract 或 parser。
 - merge 顺序会改变后续 base/head/review artifact。
@@ -63,6 +73,7 @@ parallel_decision:
 merge lane plan 必须说明：
 
 - 哪些 scheduler 可以同时实现。
+- 哪些 scheduler 只允许处理 unblocked scope。
 - 哪些 PR 必须按顺序 merge。
 - base/main 前进后，哪些 scheduler 必须 rebase 或 refresh head-bound artifacts。
 - fan-in closeout 由哪个 scheduler 执行，或是否需要新 closeout scheduler。

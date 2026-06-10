@@ -10,6 +10,7 @@ provider 优先级原则：
 - 如果当前真实协调面已经是一个 PR，例如 gate recovery、merge readiness、metadata repair 或 closeout sync，PR 可以作为 unit。
 - 如果一组 PR 构成当前协调面，使用 `pull_request_set`，并显式规划 scheduler ownership、merge lane 和 fan-in closeout。
 - watcher 不得因为发现 open PR 就绕过 scheduler；PR provider 只用于创建/维护 scheduler，不用于 watcher 亲自修 PR、跑 gate 或 merge。
+- milestone、Round、phase、project column 或列表顺序不是硬依赖。只有 `blocked-by/blocks`、task dependency、shared contract/carrier、merge lane、release gate 或明确 repo evidence 才能生成 hard dependency edge。
 
 ```text
 provider_selection:
@@ -21,6 +22,31 @@ provider_selection:
 - completion_predicate_source:
 - known_gaps:
 ```
+
+## Dependency Extraction / 依赖提取
+
+选择 provider 后，watcher 必须把依赖拆成 dependency edges，而不是用 provider 的粗粒度顺序阻塞整个 unit graph。
+
+```text
+dependency_extraction:
+- source_locator:
+- discovered_edges:
+- hard_edges:
+- soft_edges:
+- convergence_edges:
+- unblocked_scopes:
+- blocked_scopes:
+- evidence_gaps:
+```
+
+提取规则：
+
+- GitHub `blocked-by/blocks`、明确 task dependency、消费同一未冻结 schema/API/parser、写同一 carrier/status/shadow/progress，通常是 hard edge。
+- milestone/Round 的编号、issue 排序、project column 排序、PR 列表顺序，不能单独生成 hard edge。
+- inventory、调查、文档整理、低风险 fixture 分类、可重复 readback 的背景事实，默认是 soft edge。
+- release closeout、repo carrier sync、fan-in evidence、统一 review record，默认是 convergence edge，通常后置到 implementation scheduler 完成后。
+- hard edge 只阻塞消费该事实的 issue/PR/path/contract/carrier scope；不消费该事实的 downstream scope 可以进入 scheduler pool。
+- 无法证明 edge 类型或 blocked scope 时，记录 `evidence_gaps`，仅将相关候选 scope 保持 planned，不要扩大成整批 milestone 串行。
 
 ## Provider Types / 来源类型
 

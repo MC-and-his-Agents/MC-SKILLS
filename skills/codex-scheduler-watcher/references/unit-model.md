@@ -17,9 +17,12 @@ unit:
 - scheduler_thread_id:
 - scheduler_heartbeat_id:
 - dependencies:
+- dependency_edges:
 - downstream_units:
 - owned_paths:
 - shared_contracts:
+- unblocked_scope:
+- blocked_scope:
 - merge_lane:
 - closeout_required: yes|no|unknown
 - state: planned | ready | scheduler-active | scheduler-blocked | scheduler-stalled | scheduler-complete | closeout-needed | complete | deferred
@@ -27,6 +30,34 @@ unit:
 - next_action:
 - last_readback_at:
 ```
+
+## Dependency Edge Model / 依赖边模型
+
+不要把 milestone、Round、phase 或列表顺序直接当成硬依赖。watcher 必须把依赖拆成可审计 dependency edge，按最小阻塞范围判断 readiness。
+
+```text
+dependency_edge:
+- edge_id:
+- from_unit:
+- to_unit:
+- source_locator: <issue | PR | path | contract | carrier | manual evidence>
+- dependency_type: hard | soft | convergence
+- dependency_scope: unit | issue | pr | path | contract | carrier
+- blocks: whole_unit | scoped_subset
+- blocked_scope:
+- unblocked_scope:
+- readiness_predicate:
+- owner_unit:
+- evidence_locator:
+```
+
+分类规则：
+
+- `hard`：候选 scope 会消费尚未完成的 issue、PR、path、contract、schema、parser、carrier 或 merge/readback 事实；只阻塞消费它的 scope。
+- `soft`：背景信息、inventory、调查、文档准备、低风险 fixture 分类或可后续刷新事实；默认不阻塞 scheduler 创建，但必须记录 readback/refresh 要求。
+- `convergence`：release closeout、fan-in evidence、repo carrier sync、统一 review record 等后段收敛；不应前置阻塞所有 implementation scheduler，除非 completion predicate 明确要求先完成。
+
+如果 hard dependency 只覆盖 unit 的一部分，watcher 应写明 `blocked_scope` 和 `unblocked_scope`，并只为 unblocked scope 创建或恢复 scheduler。只有无法证明 dependency type、owner、readiness predicate 或 blocked scope 时，才把整个 unit 保持串行。
 
 ## Scheduler Pool / 调度器池
 
@@ -47,6 +78,9 @@ scheduler_pool:
 - owned_carriers:
 - shared_contracts:
 - dependencies:
+- dependency_edges:
+- unblocked_scope:
+- blocked_scope:
 - merge_lane:
 - last_scheduler_report:
 - last_readback_at:

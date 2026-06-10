@@ -10,10 +10,13 @@ unit_graph:
   source_locator:
   upstream_source_locator:
   dependencies:
+  dependency_edges:
   downstream_units:
   owned_paths:
   owned_carriers:
   shared_contracts:
+  unblocked_scope:
+  blocked_scope:
   merge_lane:
   completion_predicate:
   state:
@@ -32,7 +35,11 @@ unit_graph:
 ```text
 parallel_decision:
 - candidate_units:
+- candidate_scopes:
 - dependency_status:
+- dependency_edges:
+- unblocked_scope:
+- blocked_scope:
 - ownership_isolation:
 - shared_contract_status:
 - gate_capacity:
@@ -80,19 +87,24 @@ expected_scheduler_report_type:
 ack_deadline_or_next_wakeup_decision:
 
 dependencies:
+dependency_edges:
+unblocked_scope:
+blocked_scope:
 owned_paths:
 owned_carriers:
 shared_contracts:
 merge_lane:
 forbidden_scope:
+forbidden_until_dependency_ready:
 
 first required response:
 0. 输出 `scheduler_ack`，确认 watcher/scheduler 双向 thread id 和 `watcher_instruction_id`。
 1. 读取 repo/host live facts。
 2. 输出 dispatch table。
 3. 创建 scheduler heartbeat，并 read back target。
-4. 只创建 dependency-ready worker。
+4. 只在 unblocked_scope 内创建 dependency-ready worker。
 5. 所有 worker objective 必须包含 scheduler_thread_id、report_to_thread_id、instruction_id、expected_report_type。
+6. 不得处理 blocked_scope 或 `forbidden_until_dependency_ready`，除非 watcher 发送带新 `watcher_instruction_id` 的 correction/replacement 指令。
 ```
 
 ## Scheduler ACK / Scheduler 确认回报
@@ -153,9 +165,10 @@ communication_state:
 - stale_pool_entries:
 
 parallel_policy:
-- 默认串行；证明独立后并行。
+- 默认串行；分类 dependency edge 并证明候选 scope 可启动后并行。
+- 不要求 unit 完全独立；未满足 hard dependency 只阻塞消费它的 scoped subset。
 - 不使用固定 scheduler 数量上限。
-- 新增 scheduler 前必须证明 isolation、capacity、observability。
+- 新增 scheduler 前必须证明 dependency type、blocked/unblocked scope、isolation、capacity、observability。
 
 misroute_policy:
 - worker report 到 watcher 时，不消费，只转发给 scheduler。
@@ -165,7 +178,7 @@ next wakeup actions:
 2. 对未消费 scheduler report 记录 `watcher_report_consumed`。
 3. 读取 live unit completion facts。
 4. 更新 scheduler pool。
-5. 判断 ready units 是否可并行启动。
+5. 判断 ready units/scopes 是否可并行启动。
 6. 创建/替换/退休 scheduler，或记录 valid_wait/global_blocker。
 
 Watcher Decision:
@@ -205,14 +218,19 @@ live_facts:
 - branch/base/head:
 - repo_carrier:
 - scheduler_reports:
+- dependency_edges:
+- unblocked_scope:
+- blocked_scope:
 
 allowed_scope:
 - 恢复并完成本 unit 的 scheduler duties。
 - 读取 current facts，重建 dispatch table。
 - 必要时恢复 worker/gate/merge/readback。
+- 只处理 watcher 授权的 unblocked_scope。
 
 forbidden_scope:
 - 不处理其他 units。
+- 不处理 blocked_scope 或未满足 hard dependency 消费范围。
 - 不消费 watcher 误收的 worker report，除非通过 scheduler report protocol。
 - 不扩展 completion predicate。
 

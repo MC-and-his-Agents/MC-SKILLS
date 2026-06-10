@@ -1,4 +1,4 @@
 interface:
   display_name: "调度线程编排"
   short_description: "创建维护调度线程生命周期和 scheduler pool"
-  default_prompt: "使用 $codex-scheduler-watcher 创建或更新 meta-scheduler watcher automation：默认中文输出，为 milestone、parent issue、issue set、PR/PR set、repo carrier 或手工目标维护 coordination unit graph 和 scheduler pool；在证明独立、容量和可观测性足够时并行创建多个 scheduler thread；watcher 只管理调度线程生命周期和 unit cursor，不调度 worker、不运行 gate、不合并 PR。"
+  default_prompt: "使用 $codex-scheduler-watcher 创建或更新 meta-scheduler watcher automation：默认中文输出，为 milestone、parent issue、issue set、PR/PR set、repo carrier 或手工目标维护 coordination unit graph 和 scheduler pool；按 dependency edge 做 partial-order scheduling，未满足 hard dependency 只阻塞消费它的 scoped subset；在证明候选 scope 可启动、容量和可观测性足够时并行创建多个 scheduler thread；watcher 只管理调度线程生命周期和 unit cursor，不调度 worker、不运行 gate、不合并 PR。"

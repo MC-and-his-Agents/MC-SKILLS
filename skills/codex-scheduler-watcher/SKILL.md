@@ -26,8 +26,8 @@ watcher 拥有 coordination unit graph、scheduler pool、unit cursor、跨 sche
 1. 定义 coordination unit：读取 `references/unit-model.md`。
 2. 选择 unit provider：读取 `references/providers.md`，不要假设项目一定有 milestone。
 3. 写明 completion predicate：unit 完成必须由 issue/PR/repo carrier/scheduler final report 等可读事实证明。
-4. 建立 scheduler pool：记录每个 unit 的 scheduler thread、heartbeat、owned paths、dependencies、state、next action。
-5. 判断是否并行创建多个 scheduler：读取 `references/parallel-scheduling.md`。不使用固定数量上限，必须用 isolation、capacity 和 observability 证明。
+4. 建立 scheduler pool：记录每个 unit 的 scheduler thread、heartbeat、owned paths、dependency edges、unblocked/blocked scope、state、next action。
+5. 判断是否并行创建多个 scheduler：读取 `references/parallel-scheduling.md`。不使用固定数量上限，不要求 unit 完全独立；必须用 hard dependency consumption、isolation、capacity 和 observability 证明候选 scope 可启动。
 6. 创建或更新 watcher automation：读取 `references/watcher-automation.md` 和 `references/templates.md`。
 7. 创建 scheduler 时，prompt 必须要求 scheduler 使用 `$codex-thread-orchestration`，包含 `watcher_instruction_id`，并创建自己的 scheduler heartbeat。
 
@@ -36,7 +36,9 @@ watcher 拥有 coordination unit graph、scheduler pool、unit cursor、跨 sche
 - Watcher owns coordination unit graph、scheduler pool、unit cursor 和 scheduler lifecycle。
 - Scheduler owns one coordination unit 的 global goal、workers、gates、merge/readback 和 closeout。
 - Worker owns scoped execution、local validation 和 scheduler-readable reports。
-- Watcher 可以创建多个 scheduler thread，但必须先证明 unit 独立、ownership 隔离、gate/merge lane 可控、heartbeat 可观测、恢复能力足够。
+- Watcher 支持 partial-order scheduling。milestone、Round、phase 或列表顺序只是组织边界，不天然构成硬依赖；只有 issue/PR/path/contract/carrier 等可证明 dependency edge 才能阻塞调度。
+- Watcher 可以创建多个 scheduler thread，不要求 unit 完全独立；但必须先证明候选 scope 不消费未满足 hard dependency，ownership 隔离、gate/merge lane 可控、heartbeat 可观测、恢复能力足够。
+- 未满足 hard dependency 只阻塞真正消费它的 scope。其他 issue-level、PR-level、path-level 或 contract-independent scope 可以并行；无法定位 blocked/unblocked scope 时才保持串行。
 - Watcher 不直接创建 worker，不给 worker 下指令，不消费 worker report，不跑 guardian/review/controlled merge，不修 PR finding，不写业务代码。
 - Watcher 只消费 scheduler-level report：scheduler active、blocked、stalled、complete、final closeout/readback 或 scheduler missing。
 - No scheduler ACK, no active。watcher 给 scheduler 的 initial/replacement/correction 指令必须有 `watcher_instruction_id`；scheduler 回 `scheduler_ack` 前，watcher 只能标记 `scheduler-instruction-sent-awaiting-ack`，不能标记 `scheduler-active`。
@@ -46,7 +48,7 @@ watcher 拥有 coordination unit graph、scheduler pool、unit cursor、跨 sche
 - 如果 scheduler 缺失、不可读或生命周期卡住，watcher 创建 replacement scheduler 或请求用户介入；不要退化为亲自执行 scheduler scope。
 - 如果多个 scheduler 完成后需要收敛，watcher 创建 closeout / fan-in scheduler，而不是自己合并 closeout。
 - 如果 unit provider 事实不足，watcher 只回报 `provider_gap` 并停止；不要创建 watcher automation、scheduler pool、scheduler thread 或任何只读侦察线程。
-- 默认串行；证明独立后并行。无法证明 isolation、capacity 或 observability 时保持串行。
+- 默认串行；分类 dependency edge 并证明候选 scope 可启动后并行。无法证明 dependency type、blocked scope、isolation、capacity 或 observability 时保持串行。
 
 ## 引用路由
 

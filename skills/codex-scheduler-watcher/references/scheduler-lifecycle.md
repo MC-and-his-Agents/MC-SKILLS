@@ -27,7 +27,7 @@ scheduler_state:
 - unit id/title/type。
 - completion predicate。
 - constraints 和 forbidden scope。
-- dependencies 和 downstream units。
+- dependencies、dependency edges、downstream units、unblocked scope 和 blocked scope。
 - owned paths/carriers/contracts。
 - merge lane plan。
 - scheduler model/reasoning policy。
@@ -45,6 +45,7 @@ scheduler_state:
 - scheduler heartbeat id 和 target。
 - scheduler startup dispatch table。
 - scheduler 是否只处理 assigned unit。
+- scheduler 是否只处理 watcher 授权的 unblocked scope，并排除 blocked scope。
 
 创建请求发出后，scheduler pool 先标记 `scheduler-instruction-sent-awaiting-ack`。收到 `scheduler_ack` 前，不得标记 `scheduler-active`，不得把“thread 已创建”当成“scheduler 已理解并开始执行”。如果下一次 watcher wakeup 仍无 ACK，必须重发/修正路由、创建 replacement scheduler，或记录真实 tool/global blocker。
 
@@ -106,6 +107,7 @@ replacement objective 必须包含：
 - abandoned scheduler thread id。
 - replacement reason。
 - unit id 和 completion predicate。
+- dependency edges、unblocked scope、blocked scope。
 - live readback facts。
 - allowed scheduler scope。
 - forbidden scope。
@@ -119,9 +121,11 @@ replacement objective 必须包含：
 如果 scheduler 报 global blocker，watcher 不要替它解决 worker/gate 细节。watcher 只判断：
 
 - blocker 是否属于该 unit。
+- blocker 是否只阻塞 unit 的 scoped subset。
 - blocker 是否需要用户决策。
 - blocker 是否阻塞 downstream units。
 - 是否可以启动不依赖该 blocker 的其他 scheduler。
+- 是否需要把当前 unit 拆成 blocked_scope 和 unblocked_scope 后继续推进。
 
 ## Complete Scheduler / 完成调度器
 
@@ -132,5 +136,6 @@ scheduler 报 complete 后，watcher 必须独立 read back completion predicate
 - 更新 unit state。
 - 清理或退休 scheduler heartbeat。
 - 解锁 downstream units。
+- 解锁只消费该 unit completion predicate 的 blocked scope。
 - 判断是否创建下一批 scheduler。
 - 若需要 fan-in closeout，创建 closeout scheduler，而不是 watcher 自己 closeout。
