@@ -88,8 +88,8 @@ ack_deadline_or_next_wakeup_decision:
 
 dependencies:
 dependency_edges:
-unblocked_scope:
-blocked_scope:
+unblocked_scope: <full assigned unit unless a hard dependency blocks only a scoped subset>
+blocked_scope: <none unless a hard dependency blocks a scoped subset or whole unit>
 owned_paths:
 owned_carriers:
 shared_contracts:
@@ -102,7 +102,7 @@ first required response:
 1. 读取 repo/host live facts。
 2. 输出 dispatch table。
 3. 创建 scheduler heartbeat，并 read back target。
-4. 只在 unblocked_scope 内创建 dependency-ready worker。
+4. 只在 unblocked_scope 内创建 dependency-ready worker；如果 blocked_scope 为 none 或空，unblocked_scope 默认为完整 assigned unit。
 5. 所有 worker objective 必须包含 scheduler_thread_id、report_to_thread_id、instruction_id、expected_report_type。
 6. 不得处理 blocked_scope 或 `forbidden_until_dependency_ready`，除非 watcher 发送带新 `watcher_instruction_id` 的 correction/replacement 指令。
 ```

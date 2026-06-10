@@ -59,6 +59,12 @@ dependency_edge:
 
 如果 hard dependency 只覆盖 unit 的一部分，watcher 应写明 `blocked_scope` 和 `unblocked_scope`，并只为 unblocked scope 创建或恢复 scheduler。只有无法证明 dependency type、owner、readiness predicate 或 blocked scope 时，才把整个 unit 保持串行。
 
+默认值：
+
+- 没有未满足 hard dependency 时，`unblocked_scope` 必须视为完整 assigned unit，`blocked_scope` 必须视为 `none`。
+- 只有存在未满足 hard dependency 且它只覆盖 scoped subset 时，才需要把 `unblocked_scope` 缩小到可启动范围。
+- `unblocked_scope` 缺失但 `blocked_scope` 为 `none` 或空时，不得把候选 scope 解释为空；应先按完整 assigned unit 处理，或向 watcher 回报 template gap。
+
 ## Scheduler Pool / 调度器池
 
 watcher 维护 scheduler pool，而不是只维护单个 current scheduler。
