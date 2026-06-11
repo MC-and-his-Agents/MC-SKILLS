@@ -10,6 +10,10 @@ scheduler_state:
 - scheduler-routing-missing
 - scheduler-active
 - scheduler-blocked
+- scheduler-blocked-on-lane
+- scheduler-waiting-lane-grant
+- scheduler-lane-granted
+- scheduler-lane-release-pending
 - scheduler-stalled
 - scheduler-complete
 - closeout-needed
@@ -29,6 +33,7 @@ scheduler_state:
 - constraints 和 forbidden scope。
 - dependencies、dependency edges、downstream units、unblocked scope 和 blocked scope。
 - owned paths/carriers/contracts。
+- required lanes、forbidden shared paths before grant、allowed non-lane work。
 - merge lane plan。
 - scheduler model/reasoning policy。
 - watcher thread id 和 `report_to_watcher_thread_id`。
@@ -46,6 +51,7 @@ scheduler_state:
 - scheduler startup dispatch table。
 - scheduler 是否只处理 assigned unit。
 - scheduler 是否只处理 watcher 授权的 unblocked scope，并排除 blocked scope。
+- scheduler 是否在 worker objective 中继承 grant 前 forbidden shared paths。
 
 创建请求发出后，scheduler pool 先标记 `scheduler-instruction-sent-awaiting-ack`。收到 `scheduler_ack` 前，不得标记 `scheduler-active`，不得把“thread 已创建”当成“scheduler 已理解并开始执行”。如果下一次 watcher wakeup 仍无 ACK，必须重发/修正路由、创建 replacement scheduler，或记录真实 tool/global blocker。
 
@@ -98,6 +104,46 @@ watcher_report_consumed:
 
 没有 `watcher_report_consumed` 时，不得把 scheduler report 视为已经驱动 scheduler pool 或 unit state transition。若 report 缺 `scheduler_report_id` 或 `report_for_watcher_instruction_id`，watcher 可以消费 live facts，但必须标记 `report_id_missing`，并在下一条 correction 中要求 scheduler 补齐。
 
+## Lane-Level Report Consumption / Lane 级回报消费
+
+watcher 只消费 scheduler-level lane reports，不消费 worker lane detail。
+
+`lane_request` 到达后，watcher 必须：
+
+- 记录 `lane_requests_consumed`。
+- 读取 lane_lock_table、waiting_queue、open PR changed files 和 owner release predicate。
+- 返回 `lane_grant`、`lane_wait` 或 `lane_denied`。
+- 更新 scheduler state 为 `scheduler-lane-granted` 或 `scheduler-waiting-lane-grant`。
+
+`lane_release` 到达后，watcher 必须：
+
+- 记录 `lane_releases_consumed`。
+- 验证 release predicate，而不是只相信 PR merged。
+- 通过时释放 lane，并决定是否 grant 给 next waiting scheduler。
+- 失败时保持 `lane-release-pending` 或 `lane-blocked`，并给 waiting scheduler 返回 `lane_wait`。
+
+`scheduler_blocked_update` 到达后，watcher 必须：
+
+- 判断 blocker 是否 lane-scoped。
+- 如果是 lane-scoped，更新 waiting_queue，并返回 `lane_grant`、`lane_wait` 或 `lane_denied`。
+- 如果不是 lane-scoped，按普通 scheduler blocker 分类。
+- 不得替 scheduler 解决 worker/gate implementation detail。
+
+每次消费 lane report 后必须写明：
+
+```text
+lane_report_consumed:
+- watcher_thread_id:
+- scheduler_thread_id:
+- report_type: lane_request | lane_release | scheduler_blocked_update
+- report_id:
+- consumed_at:
+- lane_lock_table_updated: yes|no
+- waiting_queue_updated: yes|no
+- response_issued: lane_grant | lane_wait | lane_denied | none
+- human_summary:
+```
+
 ## Replacement Scheduler / 替换调度器
 
 当 scheduler thread 缺失、不可读、长期无有效 heartbeat、反复 status-only、或无法恢复时，watcher 可以创建 replacement scheduler。
@@ -127,6 +173,8 @@ replacement objective 必须包含：
 - 是否可以启动不依赖该 blocker 的其他 scheduler。
 - 是否需要把当前 unit 拆成 blocked_scope 和 unblocked_scope 后继续推进。
 
+如果 blocker 属于 shared carrier/status/shadow/review/gate/merge/contract lane，watcher 不得只把 scheduler 标为普通 `scheduler-blocked`。必须改为 `scheduler-blocked-on-lane` 或 `scheduler-waiting-lane-grant`，记录 waiting_queue，并向 scheduler 返回 lane decision。
+
 ## Complete Scheduler / 完成调度器
 
 scheduler 报 complete 后，watcher 必须独立 read back completion predicate。只有 scheduler final report 和 live/repo facts 对齐，unit 才能转为 complete。
@@ -137,5 +185,6 @@ scheduler 报 complete 后，watcher 必须独立 read back completion predicate
 - 清理或退休 scheduler heartbeat。
 - 解锁 downstream units。
 - 解锁只消费该 unit completion predicate 的 blocked scope。
+- 验证并释放该 scheduler 持有的 lane；未通过 release predicate 时不能把 lane 标为 free。
 - 判断是否创建下一批 scheduler。
 - 若需要 fan-in closeout，创建 closeout scheduler，而不是 watcher 自己 closeout。

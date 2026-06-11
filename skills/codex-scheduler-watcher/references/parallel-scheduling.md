@@ -2,7 +2,7 @@
 
 ## Principle / 原则
 
-不设置固定 scheduler 数量上限。并发量由 candidate scope readiness、hard dependency consumption、ownership isolation、gate pressure、merge lane、heartbeat observability 和 recovery capacity 决定。
+不设置固定 scheduler 数量上限。并发量由 candidate scope readiness、hard dependency consumption、ownership isolation、lane budget、gate pressure、merge lane、heartbeat observability 和 recovery capacity 决定。
 
 核心规则：
 
@@ -10,6 +10,7 @@
 默认串行；分类 dependency edge 并证明候选 scope 可启动后并行。
 不要求 unit 完全独立；未满足 hard dependency 只阻塞消费它的 scoped subset。
 无法证明 dependency type、blocked scope、isolation、capacity 或 observability 时保持串行。
+path isolation 只足以证明 implementation stage 可并行；review/gate/closeout/merge/shared carrier 阶段仍可能需要 watcher `lane_grant`。
 ```
 
 ## Parallel Decision / 并行决策
@@ -28,9 +29,19 @@ parallel_decision:
 - shared_contract_status:
 - gate_capacity:
 - merge_lane_plan:
+- lane_budget:
+  - implementation_only_parallel:
+  - expected_lane_requests:
+  - shared_lanes_required_later:
+  - forbidden_shared_paths_before_grant:
+  - gate_lane_plan:
+  - merge_lane_plan:
+  - carrier_lane_plan:
+  - contract_lane_plan:
+  - recovery_capacity_impact:
 - heartbeat_observability:
 - recovery_capacity:
-- decision: start_parallel | keep_serial | defer
+- decision: start_parallel | start_parallel_implementation_only | keep_serial | defer
 - reason:
 ```
 
@@ -42,7 +53,10 @@ parallel_decision:
 - unit 仍有未满足 hard dependency 时，`blocked_scope` 与 `unblocked_scope` 已明确，且 scheduler objective 排除 blocked scope。
 - 软依赖和 convergence 依赖已分类，并有后续 readback、refresh 或 fan-in plan。
 - write paths、branch、PR、worktree 隔离。
-- 不共享未冻结 schema、contract、metadata carrier、status/shadow truth。
+- implementation stage 的 write paths、branch、PR、worktree 隔离；shared carrier/status/review/gate/merge/contract 后续通过 lane lock table 排队。
+- watcher 可以提前启动 narrow scheduler，但 scheduler prompt 必须明确 grant 前禁止 shared writes / shared gate / merge。
+- candidate 即使后续需要 shared lane，也可以判定为 `start_parallel_implementation_only`。
+- 不共享未冻结 schema、contract、metadata carrier、status/shadow truth；或这些共享资源已映射到 required lane 并禁止 grant 前写入。
 - shared contract 或前置 shape owner 已 merged/readback。
 - 每个 unit 有独立 completion predicate。
 - 每个 scheduler 有独立 thread id 和 heartbeat id。
@@ -60,6 +74,7 @@ parallel_decision:
 - 多个 units 写同一 carrier/status/shadow/progress 文件。
 - 多个 units 共享未冻结 schema、fixture naming、API contract 或 parser。
 - merge 顺序会改变后续 base/head/review artifact。
+- shared lane 写入没有 lane budget、forbidden_shared_paths_before_grant 或 waiting queue plan。
 - high-cost gate 已排队、频繁失败或外部服务不稳定。
 - watcher heartbeat prompt 已经无法准确表达 active scheduler pool。
 - 任一 scheduler 进入 `scheduler-stalled`、replacement、takeover、dirty metadata recovery。
@@ -74,9 +89,20 @@ merge lane plan 必须说明：
 
 - 哪些 scheduler 可以同时实现。
 - 哪些 scheduler 只允许处理 unblocked scope。
+- 哪些 scheduler 只能 implementation-only，后续必须通过 `merge_lane` 或其他 lane grant。
 - 哪些 PR 必须按顺序 merge。
 - base/main 前进后，哪些 scheduler 必须 rebase 或 refresh head-bound artifacts。
 - fan-in closeout 由哪个 scheduler 执行，或是否需要新 closeout scheduler。
+
+## Lane Budget / 共享通道预算
+
+lane budget 必须回答：
+
+- 当前并行是否只覆盖 implementation-only。
+- 预计哪些 scheduler 会请求 `shared_fact_chain_status_lane`、`shadow_carrier_lane`、`current_item_review_lane`、`high_cost_gate_lane`、`merge_lane` 或 `contract_lane`。
+- grant 前哪些 shared paths 明确 forbidden。
+- gate/review/merge/carrier/contract lane 的等待队列和恢复容量是否足够。
+- lane contention 是否会增加 watcher heartbeat 频率或 recovery load。
 
 ## Recovery Capacity / 恢复容量
 

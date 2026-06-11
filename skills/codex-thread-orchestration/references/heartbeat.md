@@ -163,4 +163,10 @@ Heartbeat Decision:
 
 有效 `valid_wait` 必须证明等待对象仍在推进：active worker 最近有输出、同一 hosted run 仍在运行、外部锁/权限/队列处于有界等待。`pendingWorktreeId`、未 ACK 的 `instruction-sent-awaiting-ack`、旧 heartbeat summary、已停在 `waiting-scheduler-gate` 的 worker、`worker-stalled` worker 都不是合法等待对象。
 
+No self-owned next action, no stop：
+
+- `next_owner=scheduler` 或 `next_action_by=scheduler` 时，本轮必须先执行对应 scheduler side effect，再输出 Heartbeat Decision。
+- 只写 `next_scheduler_action`、`next_owner=scheduler` 或“下一步由 scheduler 执行”不构成 `action_taken`。
+- 当前 scheduler 自己要执行的动作不能作为 `valid_wait`；如果工具、权限、环境或外部状态阻止执行，必须分类为 blocker。
+
 如果无法行动也无法合法等待，必须记录 `global_blocker` 和解除条件。否则该 heartbeat 是 scheduler 空转，应立即纠正。

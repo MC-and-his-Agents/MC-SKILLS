@@ -20,15 +20,53 @@ unit:
 - dependency_edges:
 - downstream_units:
 - owned_paths:
+- owned_carriers:
 - shared_contracts:
 - unblocked_scope:
 - blocked_scope:
+- required_lanes:
 - merge_lane:
 - closeout_required: yes|no|unknown
 - state: planned | ready | scheduler-active | scheduler-blocked | scheduler-stalled | scheduler-complete | closeout-needed | complete | deferred
 - next_owner:
 - next_action:
 - last_readback_at:
+```
+
+## Candidate Graph / 候选调度图
+
+candidate graph 是 watcher 在创建 scheduler 前维护的候选执行面。它比 unit graph 更细，可表达同一 unit 内的 implementation-only scope、blocked lane scope 和 later convergence scope。
+
+```text
+candidate_graph:
+- candidate_id:
+- unit_id:
+- candidate_scope:
+- candidate_type: implementation_only | lane_bound | convergence | replacement | closeout
+- dependency_edges:
+- required_lanes:
+- forbidden_shared_paths_before_grant:
+- readiness_predicate:
+- lane_readiness:
+- scheduler_thread_id:
+- state: planned | ready | scheduler-active | waiting-lane-grant | lane-granted | complete | deferred
+- next_owner:
+- next_action:
+```
+
+candidate pool 用于当前或下一批可启动候选：
+
+```text
+candidate_pool:
+- candidate_id:
+- unit_id:
+- unblocked_scope:
+- blocked_scope:
+- implementation_only_parallel: yes|no
+- expected_lane_requests:
+- waiting_lane:
+- scheduler_owner:
+- next_readback_at:
 ```
 
 ## Dependency Edge Model / 依赖边模型
@@ -83,15 +121,29 @@ scheduler_pool:
 - owned_paths:
 - owned_carriers:
 - shared_contracts:
+- required_lanes:
 - dependencies:
 - dependency_edges:
 - unblocked_scope:
 - blocked_scope:
+- lane_state:
 - merge_lane:
 - last_scheduler_report:
 - last_readback_at:
 - next_owner:
 - next_action:
+```
+
+## Shared Lane Top-Level State / 共享通道顶层状态
+
+watcher 必须把 shared lane ownership 作为独立事实载体维护，而不是只写在 scheduler blocker 里。详细协议见 `lane-locks.md`。
+
+```text
+lane_lock_table:
+<see references/lane-locks.md>
+
+waiting_queue:
+<see references/lane-locks.md>
 ```
 
 ## Ownership Locks / 所有权锁
@@ -107,14 +159,17 @@ scheduler_pool:
 
 lock 不一定阻止并行，但必须有明确 owner 和冲突处理规则。无法说明 owner 时，不并行。
 
+ownership lock 是启动前的冲突检查；lane lock 是 scheduler 运行期间进入 shared carrier/status/review/gate/merge/contract 阶段前的 grant/wait/release 协议。不要用一次性的 ownership lock 代替持久 lane lock table。
+
 ## Fact Priority / 事实优先级
 
 watcher 决策时按以下事实优先级处理冲突：
 
 1. live host/local readback。
 2. repo carrier current files。
-3. newest scheduler final/blocked/active report。
-4. watcher-authored state。
-5. older watcher heartbeat summary。
+3. lane lock table 和 waiting queue 的 live readback。
+4. newest scheduler final/blocked/active/lane report。
+5. watcher-authored state。
+6. older watcher heartbeat summary。
 
 watcher 不消费 worker report 作为 unit truth。worker report 只能转发给 scheduler。

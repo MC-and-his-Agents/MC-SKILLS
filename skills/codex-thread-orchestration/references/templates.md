@@ -439,6 +439,7 @@ Heartbeat Action:
 5. 如果 pending worktree 短轮询后没有 readable thread/worksite，标记 pending-materialization-stalled 并 recreate/recover。
 6. 如果 instruction-sent-awaiting-ack 到本轮仍无 ack，resend/correct routing/recover；不得标记 active。
 7. 如果 prompt stale，先更新 automation，再继续调度。
+8. 如果 next_owner=scheduler 或 next_action_by=scheduler，先执行对应 side effect；不能只写下一步由 scheduler 执行。
 
 Heartbeat Decision:
 - heartbeat_decision: action_taken | valid_wait | global_blocker
@@ -449,4 +450,9 @@ Heartbeat Decision:
 - next_owner:
 - next_action_by:
 - next_decision_at:
+
+No self-owned next action, no stop:
+- scheduler-owned next action must be executed before this report.
+- If execution is impossible, classify the blocker instead of setting next_owner=scheduler.
+- valid_wait cannot be a scheduler-owned pending action.
 ```

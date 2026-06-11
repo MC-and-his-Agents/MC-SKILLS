@@ -275,8 +275,15 @@ Top Goal 未完成时，scheduler heartbeat、wakeup 或调度恢复 turn 的 fi
 
 - 只输出 fact table、heartbeat summary 或 “no action needed”，但没有上述字段。
 - `next_owner=scheduler` 时只说“下一步由 scheduler 执行”却未执行，也没有 blocker。
+- `next_action_by=scheduler`、`next_scheduler_action` 或 `next_owner=scheduler` 指向当前 scheduler 可执行动作时，只总结状态或记录下一步，但没有实际 side effect。
 - 没有有效 worker 推进时等待下一次 heartbeat。
 - 把旧 heartbeat summary 当作最新事实，覆盖新的 worker report、host readback 或 repo carrier。
+
+No self-owned next action, no stop：
+
+- 如果下一步 owner 是 scheduler，本轮必须先执行对应动作，例如创建/恢复 worker、发送 correction、运行/授权 gate、controlled merge/readback、标记 stalled、创建 replacement、更新 heartbeat 或消费 closeout。
+- 如果无法执行，必须分类为 `global_blocker`、`tool_blocker`、`permission_blocker` 或 `external_wait`，并写清解除条件和 next owner。
+- 合法等待对象必须是 external、active worker、hosted run、另一个 owner 或有界外部锁；不得把当前 scheduler 自己的待办写成 valid_wait。
 
 ## Waiting Scheduler Gate / Scheduler 强制接管
 
