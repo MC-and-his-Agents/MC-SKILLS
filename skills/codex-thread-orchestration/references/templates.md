@@ -69,6 +69,62 @@ Current state: <state>
 - blocker or next scheduler action:
 ```
 
+## Root-Cause Correction Prompt / 根因纠偏 Prompt
+
+```text
+<Worker id>, scheduler root-cause correction:
+instruction_id: <worker-id-root-cause-YYYYMMDDHHMM>
+supersedes_instruction_id: <prior instruction id or N/A>
+scheduler_thread_id: <scheduler thread id>
+report_to_thread_id: <scheduler_thread_id>
+expected_report_type: instruction_ack_then_root_cause_correction_result
+report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, mark instruction unacknowledged and recover>
+
+trigger: <same_class_semantic_boundary_repetition | metadata_repetition | hosted_check_repetition | tool_flake_repetition>
+repeated_subject: <PR/helper/admission path>
+repeated_findings:
+- <guardian/review finding ids or summaries>
+admission_path:
+- <valid=true / admission-style / closeout boundary path or N/A>
+
+required_invariant_checklist:
+- evidence contract proven before valid=true/admission
+- fail-closed behavior before positive admission
+- route/provider binding proves source and freshness
+- redaction/freshness/provenance/ref locator requirements covered
+- provider evidence shape / evidence_class / closeout_plan gaps audited
+
+required_fail_closed_matrix:
+- positive paths:
+- negative cases:
+- gaps:
+
+same_class_audit_surfaces:
+- admission helpers:
+- route/provider binding:
+- evidence shape:
+- readiness/freshness:
+- redaction/provenance/ref locators:
+- closeout carrier/status/review surfaces:
+
+rules:
+- no narrow latest-finding patching only.
+- unverifiable_invariants_must_report_blocker: yes
+- no_guardian_until_scheduler_consumes_root_cause_report: yes
+
+回报内容:
+- instruction_ack:
+- changed files and scope:
+- invariant checklist:
+- fail-closed matrix coverage:
+- same-class audit surfaces and results:
+- unverifiable invariants:
+- remaining risks:
+- validation and metadata/readback:
+- report_id:
+- report_for_instruction_id:
+```
+
 ## Recovery Prompt For Blocked/Complete Goal / 恢复 Prompt
 
 ```text
@@ -389,6 +445,12 @@ Hosted checks: <green, run ids>
 Metadata readback: <body/payload/head aligned>
 Findings: <none or dispositioned>
 Same-class search: <done / N/A>
+Gate Failure Ledger: <N/A or compact pr/head/attempts/repetition/escalation summary>
+Invariant checklist: <complete | partial | N/A>
+Fail-closed matrix coverage: <positive paths / negative cases / gaps / N/A>
+Unverifiable invariants: <none or list with owner>
+Admission-style valid=true path audited: <yes | no | N/A>
+Root-cause correction completed: <yes | no | N/A>
 Gate owner: scheduler
 Next scheduler action: <run guardian / formal review / controlled merge / post-merge readback>
 Next worker action: waiting
@@ -414,13 +476,25 @@ Current Workers:
 - head / base:
 - state:
 - blocker:
+- gate_failure_ledger:
+  - pr_or_task:
+  - current_head:
+  - last_reviewed_head:
+  - gate_attempt_count:
+  - request_changes_count:
+  - repeated_semantic_area:
+  - touched_admission_paths:
+  - repetition_detection:
+  - escalation_action:
 - next_scheduler_action:
 - next_worker_action:
 
 Facts Consumed Before This Heartbeat:
 - worker_reports:
+- codex_delegation_reports:
 - live_pr_or_task_readback:
 - local_git_readback:
+- gate_failure_ledger_updates:
 - issue_state:
 - repo_carrier_state:
 - stale_heartbeat_corrected: yes|no
@@ -432,14 +506,15 @@ Completed Readback:
 <merged/closed/readback facts>
 
 Heartbeat Action:
-1. 读取 worker reports 和 host state。
-2. 如果 worker 处于 waiting-scheduler-gate，运行或授权准确的 next gate。
-3. 如果 blocked，分类 root cause，并发送 correction 或 new objective。
-4. 如果当前 batch 已完成，创建下一个 dependency-ready worker。
-5. 如果 pending worktree 短轮询后没有 readable thread/worksite，标记 pending-materialization-stalled 并 recreate/recover。
-6. 如果 instruction-sent-awaiting-ack 到本轮仍无 ack，resend/correct routing/recover；不得标记 active。
-7. 如果 prompt stale，先更新 automation，再继续调度。
-8. 如果 next_owner=scheduler 或 next_action_by=scheduler，先执行对应 side effect；不能只写下一步由 scheduler 执行。
+1. 先消费相关 worker reports / codex_delegation reports。
+2. 优先处理 waiting-scheduler-gate / stopped_at_waiting_scheduler_gate 的 scheduler-owned gate queue。
+3. 更新 Gate Failure Ledger；如果命中 same_class_semantic_boundary_repetition，设置 gate_retry_blocked，发送 root-cause correction，不得继续 high-cost gate。
+4. 如果 blocked，分类 root cause，并发送 correction、root-cause correction 或 new objective。
+5. 如果当前 batch 已完成，创建下一个 dependency-ready worker。
+6. 如果 pending worktree 短轮询后没有 readable thread/worksite，标记 pending-materialization-stalled 并 recreate/recover。
+7. 如果 instruction-sent-awaiting-ack 到本轮仍无 ack，resend/correct routing/recover；不得标记 active。
+8. 如果 prompt stale，先更新 automation，再继续调度。
+9. 如果 next_owner=scheduler 或 next_action_by=scheduler，先执行对应 side effect；不能只写下一步由 scheduler 执行。
 
 Heartbeat Decision:
 - heartbeat_decision: action_taken | valid_wait | global_blocker

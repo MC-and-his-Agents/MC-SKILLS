@@ -71,6 +71,12 @@ effective_progress_subject: <thread/run/PR/head or N/A>
 Event: <replacement-worker-created | scheduler-controlled-takeover | takeover-escalated | worker-stalled-abandoned | N/A>
 Gate owner: <scheduler | worker-authorized>
 Gate status: <not-ready | ready-for-scheduler | authorized | passed | failed | N/A>
+Gate Failure Ledger: <N/A or compact pr/head/attempts/repetition/escalation summary>
+Invariant checklist: <complete | partial | N/A>
+Fail-closed matrix coverage: <positive paths / negative cases / gaps / N/A>
+Unverifiable invariants: <none or list with owner>
+Admission-style valid=true path audited: <yes | no | N/A>
+Root-cause correction completed: <yes | no | N/A>
 Blocker: <none or classified root cause>
 Next owner: <scheduler | worker | replacement | external>
 Next scheduler action: <exact action needed>
@@ -141,6 +147,11 @@ report_consumed:
   head_bound_artifacts_refreshed: <yes/no/N/A>
   pending_materialization_status: <N/A/pending/materialized/pending-materialization-stalled>
   Gate owner: <scheduler | worker-authorized>
+  Invariant checklist: <complete/partial/N/A>
+  Fail-closed matrix coverage: <positive paths / negative cases / gaps / N/A>
+  Unverifiable invariants: <none or list with owner>
+  Admission-style valid=true path audited: <yes/no/N/A>
+  Root-cause correction completed: <yes/no/N/A>
   Blocker: <none or root cause>
   Next scheduler action: <exact action needed>
   Next worker action: <exact action or waiting>

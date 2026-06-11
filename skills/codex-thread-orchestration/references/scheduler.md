@@ -47,6 +47,16 @@ T1:
 - worker_state:
 - goal_status:
 - gate_state:
+- gate_failure_ledger:
+  - pr_or_task:
+  - current_head:
+  - last_reviewed_head:
+  - gate_attempt_count:
+  - request_changes_count:
+  - repeated_semantic_area:
+  - touched_admission_paths:
+  - repetition_detection: none | same_class_semantic_boundary_repetition | metadata_repetition | hosted_check_repetition | tool_flake_repetition
+  - escalation_action: none | root_cause_correction_required | root_cause_correction_sent | gate_retry_blocked
 - next_owner: scheduler | worker | replacement | external
 - next_action:
 - blocker_classification:
@@ -259,7 +269,8 @@ worker block 不等于 global block。逐项分类：
 - Another worker owns the blocker：将被阻塞 worker 标为 `waiting-on-worker`，激活或创建 owner worker，readback 后再恢复被阻塞 worker。
 - Shared contract/schema/policy blocker：指定唯一 owner，禁止重复定义，下游 worker gate 在 owner artifact 上。
 - Environment/tool/host transient：做有界 retry/readback；分类前不要标记 global failure。
-- Gate/root-cause failure：停止高成本重试，发出 narrow root-cause correction objective。
+- Gate/root-cause failure：停止高成本重试，发出 root-cause correction objective。
+- Repeated semantic boundary failure：更新 Gate Failure Ledger，阻止下一次 high-cost gate，并发送 root-cause correction objective；不要继续发送 narrow latest-finding correction。
 
 如果所有 worker 都 idle、blocked 或 waiting，而 Top Goal 未完成，scheduler 必须介入：unblock、创建 next dependency-ready worker、授权 gate，或回报真实 global blocker。
 
