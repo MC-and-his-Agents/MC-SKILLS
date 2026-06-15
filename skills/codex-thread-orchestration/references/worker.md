@@ -6,6 +6,7 @@
 
 - worker id、title、objective、具体 `scheduler_thread_id` 和 `report_to_thread_id`。
 - `instruction_id`、`supersedes_instruction_id`、`expected_report_type` 和 `report_deadline_or_next_heartbeat_decision`。
+- `orchestration_state_root`、`report_output_path`、`report_size_budget` 和 `do_not_read_retired_thread_turns: true`。
 - `pwd`、repo root，以及当前目录是否为 assigned worker worksite。
 - branch、HEAD、base branch 或等价 target。
 - `git status` 和 dirty diff。
@@ -14,9 +15,9 @@
 
 如果当前 `cwd` 是 Codex-managed worktree 且 detached at base/main，这可能是正常初始化状态。只有 scheduler 授权时，才在 worker worksite 内切换 assigned branch。除非明确授权，绝不切换或写入 project/root main worktree。
 
-任何 locator 缺失或不一致时，先生成 scheduler-readable report 并等待 correction。如果不一致导致无法有意义推进，且已有 goal，则将当前 goal 结束为 `blocked`。
+任何 locator 或 carrier 字段缺失、不一致时，先把 scheduler-readable report artifact 写入 `report_output_path`，发送 locator-only notice，并等待 correction。如果 `report_output_path` 不可写，输出 `report-path-missing` blocker；不要把完整 report 放入线程正文。如果不一致导致无法有意义推进，且已有 goal，则将当前 goal 结束为 `blocked`。
 
-如果 `scheduler_thread_id`、`report_to_thread_id`、`instruction_id` 或 `expected_report_type` 缺失，worker 不得自行推断路由或开始实施。回报 `routing-missing`，`worker_state=waiting-scheduler`，并等待 scheduler correction。
+如果 `scheduler_thread_id`、`report_to_thread_id`、`instruction_id`、`expected_report_type`、`orchestration_state_root`、`report_output_path`、`report_size_budget` 或 `do_not_read_retired_thread_turns: true` 缺失，worker 不得自行推断路由或开始实施。回报 locator-only `routing-missing`，`worker_state=waiting-scheduler`，并等待 scheduler correction。
 
 ## Goal Start / 创建 Goal
 
@@ -30,6 +31,7 @@ worksite confirmation 干净后，用 exact delegated objective 创建 worker go
 - `get_goal.status`。
 - `create_goal` 是否失败，或是否残留 old goal。
 - 是否可以继续执行。
+- report artifact path 和 locator notice。
 
 block、complete 或 recover goal 前读取 `goal-lifecycle.md`。
 
@@ -44,6 +46,7 @@ block、complete 或 recover goal 前读取 `goal-lifecycle.md`。
 - 根据 diff 运行 local 和 targeted validation。
 - retry 前先分类 hosted checks、tool failures 和 findings。
 - 所有关键节点都按 reporting protocol 回报。
+- 所有完整回报、验证输出、hosted/gate 输出和长 shell 输出都写入 `orchestration_state_root` 下的 report/artifact path，跨线程只传 locator。
 
 不得：
 
@@ -53,6 +56,8 @@ block、complete 或 recover goal 前读取 `goal-lifecycle.md`。
 - 除非 scheduler 明确授权当前 head，否则运行 high-cost guardian/formal review/semantic review/controlled merge/release。
 - 使用 raw host commands 绕过 controlled wrappers。
 - 没有 scheduler-readable final report 就标记 complete。
+- 读取 retired、systemError 或 abandoned thread turns。
+- 把完整 report、完整 validation log、thread preview、gate output 或 shell output 粘进线程正文。
 
 ## Worker States / Worker 状态
 
@@ -73,7 +78,7 @@ block、complete 或 recover goal 前读取 `goal-lifecycle.md`。
 
 ## Required Reports / 必要回报
 
-以下节点必须向 scheduler 回报：
+以下节点必须向 scheduler 写完整 report artifact，并发送 locator-only notice：
 
 - worksite plus goal self-check 完成。
 - 收到 initial/correction/recovery/replacement 指令后的 `instruction_ack`，或缺字段时的 `routing-missing`。
@@ -86,7 +91,7 @@ block、complete 或 recover goal 前读取 `goal-lifecycle.md`。
 - 需要 scheduler decision。
 - 即将将 goal 标记为 `blocked` 或 `complete`。
 
-如果 `gate_owner=scheduler`，正常本地完成态是 `waiting-scheduler-gate`，不是 merge 或 final complete。
+如果 `gate_owner=scheduler`，正常本地完成态是 `waiting-scheduler-gate`，不是 merge 或 final complete。完整 gate-readiness evidence 写入 artifact，跨线程只传 report locator。
 
 ## Read-Only Explorers / 只读 Explorer
 

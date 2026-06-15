@@ -3,6 +3,7 @@
 ## Purpose / 用途
 
 lane lock 用于协调多个 scheduler 对共享 carrier、status、review、gate、merge 和 contract 资源的排他访问。watcher 拥有 lane lock table 和 waiting queue；scheduler 只能请求、等待、持有和释放 lane，不能自行判定共享 lane 已可用。
+完整 lane state 写入 `orchestration_state_root/state/lane-lock-table.json` 和 `orchestration_state_root/state/waiting-queue.json`；跨线程只传 lane report locator。
 
 partial-order scheduling 决定 scheduler 是否可以启动。lane locks 决定已启动 scheduler 是否可以进入共享资源阶段。
 
@@ -187,13 +188,16 @@ release predicate 未通过时，lane 保持 `lane-release-pending` 或转为 `l
 - worker objective 必须继承 grant 前的 forbidden shared paths。
 - scheduler lane-scoped blocker 必须回报 scheduler-level `scheduler_blocked_update` 或 `lane_request`，不要把 worker detail 直接发给 watcher。
 - scheduler 完成 granted lane action 后必须回报 `lane_release` 或 release-pending report，等待 watcher 验证。
+- scheduler lane report 必须写入 `report_output_path`；跨线程只发送 `report_id`、`report_path`、`state_root`、`unit_id`、`state`、`head/base`、`next_owner` 和 `next_action`。
 
 ## Watcher Rules / Watcher 规则
 
 - watcher 消费 `lane_request` 后，必须返回 `lane_grant`、`lane_wait` 或 `lane_denied`。
 - watcher 不运行 gate、不 merge、不修 PR finding、不写业务代码。
-- watcher 只更新 lane table、waiting queue、scheduler pool、heartbeat prompt 和 scheduler-level instructions。
+- watcher 只更新 lane table、waiting queue、scheduler pool、heartbeat locator prompt 和 scheduler-level instructions。
 - `next_owner=watcher` 时，watcher 必须执行 grant/wait/release/recovery 等真实 side effect；不能只输出下一步由 watcher 处理。
+- 旧 scheduler 标记为 `retired`、`systemError-retired` 或 `abandoned` 后，其 lane grant 不自动转移给 replacement scheduler；必须重新验证 release predicate、current PR/head/base、repo carrier 和 waiting queue 后重新 grant。
+- watcher 不得读取 retired/systemError thread turns 来判断 lane release；只能使用项目事实源、state files、consumption records 和 current live locator。
 
 ## End-to-End Example / 端到端示例
 

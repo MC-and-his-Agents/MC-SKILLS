@@ -2,6 +2,18 @@
 
 语言规则：模板里的自然语言默认写中文；字段名、状态枚举、工具名、命令和日志保持英文机器可读。复制模板时不要把整段回报改成英文。
 
+所有模板默认遵守 `references/orchestration-carrier.md`：完整 report 写 `report_output_path`，跨线程只发 locator notice；没有可写 report path 时输出 blocker，不把完整 report 粘进线程正文。
+
+## Common Carrier Fields / 通用载体字段
+
+```text
+orchestration_state_root: /Users/<username>/orchestration/<project>/<round-or-unit>
+report_output_path: <orchestration_state_root>/reports/<report_id>.json
+report_size_budget: <=4KB for report notice
+cross_thread_message_budget: <=2KB
+do_not_read_retired_thread_turns: true
+```
+
 ## Worker Initial Prompt / Worker 初始 Prompt
 
 ```text
@@ -13,7 +25,12 @@ Worker 身份:
 - instruction_id: <Tn-initial-YYYYMMDDHHMM>
 - supersedes_instruction_id: N/A
 - expected_report_type: instruction_ack_then_startup_report
-- report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, treat as instruction unacknowledged>
+- orchestration_state_root: /Users/<username>/orchestration/<project>/<round-or-unit>
+- report_output_path: <state_root>/reports/<worker-id-ack-YYYYMMDDHHMM>.json
+- report_size_budget: <=4KB notice; full report in artifact
+- cross_thread_message_budget: <=2KB
+- do_not_read_retired_thread_turns: true
+- report_deadline_or_next_heartbeat_decision: <if no ack locator/report by next heartbeat, treat as instruction unacknowledged>
 - title: [<Project/Round>][<Tn>][<units>][<PR/Task>] <short task>
 - model/reasoning: <default gpt-5.5 + high for complex/high-risk/shared-contract/gate work; lower only for low-risk read-only or mechanical work>
 
@@ -33,10 +50,14 @@ Worker 身份:
 第一步:
 只读确认 worksite、branch、HEAD、base、status、PR/task metadata 和 issue/task state。如果 Codex-managed worker worksite 处于 detached at base/main，这可能是正常初始化状态；只有本 prompt 明确授权时，才在 worker worksite 内切换到 assigned branch。
 
-如果 worksite 一致，用上面的 exact objective 创建 goal，立即运行 get_goal，并把 objective/status 回报给 scheduler_thread_id。
-首个 report 必须包含 `instruction_ack`，以及 `instruction_id`、`report_id`、`worker_state`、`goal_status` 和 `gate_state`。
+如果 worksite 一致，用上面的 exact objective 创建 goal，立即运行 get_goal，把完整 instruction_ack/startup report 写入 report_output_path，并只向 scheduler_thread_id 发送 locator notice。
 
-不要写入 project/root main worktree。不要扩大 scope。除非 scheduler 针对当前 head 明确授权，不要运行 guardian/formal review/controlled merge/closeout。
+禁止:
+- 不写入 project/root main worktree。
+- 不扩大 scope。
+- 不读取 retired/systemError/abandoned thread turns。
+- 不把完整 validation、gate output、shell output 或 report 粘进线程正文。
+- 除非 scheduler 针对当前 head 明确授权，不运行 guardian/formal review/controlled merge/closeout。
 ```
 
 ## Scheduler Correction Prompt / Scheduler 纠偏 Prompt
@@ -48,8 +69,18 @@ supersedes_instruction_id: <prior instruction id or N/A>
 scheduler_thread_id: <scheduler thread id>
 report_to_thread_id: <scheduler_thread_id>
 expected_report_type: instruction_ack_then_correction_result
-report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, mark instruction unacknowledged and recover>
-Current state: <state>
+orchestration_state_root: <state_root>
+report_output_path: <state_root>/reports/<worker-id-correction-result-YYYYMMDDHHMM>.json
+report_size_budget: <=4KB notice; full report in artifact
+cross_thread_message_budget: <=2KB
+do_not_read_retired_thread_turns: true
+report_deadline_or_next_heartbeat_decision: <if no ack locator/report by next heartbeat, mark instruction unacknowledged and recover>
+Current state locator:
+- report_id:
+- report_path:
+- head:
+- base:
+
 纠偏目标/边界:
 - <specific correction>
 
@@ -58,15 +89,12 @@ Current state: <state>
 
 禁止:
 - <forbidden actions>
+- 不读取 retired/systemError/abandoned thread turns。
+- 不把完整 report/log/output 放进跨线程正文。
 
-回报内容:
-- instruction_ack:
-- worksite/head:
-- validation:
-- metadata/readback:
-- report_id:
-- report_for_instruction_id:
-- blocker or next scheduler action:
+回报:
+- 写完整 report 到 report_output_path。
+- 只发送 Scheduler Report Notice，包括 report_id/report_path/state_root/unit_id/state/head/base/next_owner/next_action。
 ```
 
 ## Root-Cause Correction Prompt / 根因纠偏 Prompt
@@ -78,12 +106,16 @@ supersedes_instruction_id: <prior instruction id or N/A>
 scheduler_thread_id: <scheduler thread id>
 report_to_thread_id: <scheduler_thread_id>
 expected_report_type: instruction_ack_then_root_cause_correction_result
-report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, mark instruction unacknowledged and recover>
+orchestration_state_root: <state_root>
+report_output_path: <state_root>/reports/<worker-id-root-cause-result-YYYYMMDDHHMM>.json
+report_size_budget: <=4KB notice; full report in artifact
+cross_thread_message_budget: <=2KB
+do_not_read_retired_thread_turns: true
+report_deadline_or_next_heartbeat_decision: <if no ack locator/report by next heartbeat, mark instruction unacknowledged and recover>
 
 trigger: <same_class_semantic_boundary_repetition | metadata_repetition | hosted_check_repetition | tool_flake_repetition>
 repeated_subject: <PR/helper/admission path>
-repeated_findings:
-- <guardian/review finding ids or summaries>
+repeated_findings_artifact_path: <state_root>/artifacts/<gate-id>/findings.json
 admission_path:
 - <valid=true / admission-style / closeout boundary path or N/A>
 
@@ -111,18 +143,11 @@ rules:
 - no narrow latest-finding patching only.
 - unverifiable_invariants_must_report_blocker: yes
 - no_guardian_until_scheduler_consumes_root_cause_report: yes
+- full evidence goes to artifact paths; cross-thread notice stays locator-only.
 
-回报内容:
-- instruction_ack:
-- changed files and scope:
-- invariant checklist:
-- fail-closed matrix coverage:
-- same-class audit surfaces and results:
-- unverifiable invariants:
-- remaining risks:
-- validation and metadata/readback:
-- report_id:
-- report_for_instruction_id:
+回报:
+- 写完整 root-cause report 到 report_output_path。
+- 只发送 locator notice。
 ```
 
 ## Recovery Prompt For Blocked/Complete Goal / 恢复 Prompt
@@ -133,13 +158,18 @@ supersedes_instruction_id: <prior instruction id or N/A>
 scheduler_thread_id: <scheduler thread id>
 report_to_thread_id: <scheduler_thread_id>
 expected_report_type: instruction_ack_then_new_goal_report
-report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, mark worker-stalled or create replacement>
+orchestration_state_root: <state_root>
+report_output_path: <state_root>/reports/<worker-id-recovery-report-YYYYMMDDHHMM>.json
+report_size_budget: <=4KB notice; full report in artifact
+cross_thread_message_budget: <=2KB
+do_not_read_retired_thread_turns: true
+report_deadline_or_next_heartbeat_decision: <if no ack locator/report by next heartbeat, mark worker-stalled or create replacement>
 
 你的 previous goal 已经 blocked/complete。goal API 不能恢复或编辑它。
 请用下面的 exact objective 创建新 goal：
 "<new exact objective>"
 
-创建后运行 get_goal，并把 objective/status 回报给 report_to_thread_id。回报必须包含 `instruction_ack`、`report_id`、`report_for_instruction_id`、`worker_state`、`goal_status` 和 `gate_state`。不要把旧 goal 当作 active。
+创建后运行 get_goal，把 objective/status 写入 report_output_path，并只向 report_to_thread_id 发送 locator notice。不要把旧 goal 当作 active。
 ```
 
 ## Recovery Checkpoint Record / 恢复检查点记录
@@ -151,11 +181,13 @@ recovery_prompt:
 - instruction_id:
 - supersedes_instruction_id:
 - sent_at:
-- expected_report_type: <worksite/head report | rebase result | metadata repair readback | validation result>
+- expected_report_type:
+- report_output_path:
+- recovery_index_path: <state_root>/state/recovery-index.json
 - target_head:
 - target_base:
 - target_pr_or_task:
-- next_heartbeat_decision: if no scheduler-readable report or no fact change, mark worker-stalled
+- next_heartbeat_decision: if no report locator or no fact change, mark worker-stalled
 ```
 
 ## Replacement Worker Prompt / 替换 Worker Prompt
@@ -169,7 +201,12 @@ Worker 身份:
 - instruction_id: <replacement-id-recovery-YYYYMMDDHHMM>
 - supersedes_instruction_id: <stalled worker instruction id or N/A>
 - expected_report_type: instruction_ack_then_recovered_waiting_scheduler_gate
-- report_deadline_or_next_heartbeat_decision: <if no ack/report by next heartbeat, classify replacement startup failure>
+- orchestration_state_root: <state_root>
+- report_output_path: <state_root>/reports/<replacement-id-recovery-report-YYYYMMDDHHMM>.json
+- report_size_budget: <=4KB notice; full report in artifact
+- cross_thread_message_budget: <=2KB
+- do_not_read_retired_thread_turns: true
+- report_deadline_or_next_heartbeat_decision: <if no ack locator/report by next heartbeat, classify replacement startup failure>
 - title: [<Project/Round>][<replacement id>][Recovery][<PR/Task>] <short task>
 
 目标:
@@ -179,6 +216,10 @@ Worker 身份:
 - stalled_worker_id:
 - stalled_worker_thread_id:
 - recovery_reason:
+- recovery_index_path: <state_root>/state/recovery-index.json
+- prior_report_locator:
+  - report_id:
+  - report_path:
 - branch:
 - worksite:
 - base:
@@ -187,49 +228,41 @@ Worker 身份:
 边界:
 - state starts as replacement-planned, then replacement-active after worksite + goal self-check
 - allowed write paths:
-- forbidden: expand original scope, run guardian/formal review/controlled merge, modify unrelated units
+- forbidden: expand original scope, run guardian/formal review/controlled merge, modify unrelated units, read abandoned/retired/systemError thread turns
 - validation requirements:
 - gate_owner: scheduler
 
-恢复完成、head/base/body 已 read back 且 hosted checks green 后，回报 `recovered-waiting-scheduler-gate`。
-每个 report 都必须包含 `report_id` 和 `report_for_instruction_id`。
+恢复完成、head/base/body 已 read back 且 hosted checks green 后，写完整 report 到 report_output_path，并发送 `recovered-waiting-scheduler-gate` locator notice。
 ```
 
-## Instruction Ack / 指令 ACK
+## Report Notice / Locator 回报
 
 ```text
-Scheduler Report:
-Worker: <worker_id>
-Thread: <worker_thread_id>
-State: <confirming | routing-missing | active>
-instruction_ack:
-- received_from_scheduler_thread_id:
-- report_to_thread_id:
-- instruction_id:
-- supersedes_instruction_id:
-- accepted: yes | no
-- objective_digest:
-- worker_state:
-- goal_status:
-- gate_state:
-- first_action:
-- missing_fields: <none or list>
-report_id: <worker-id-ack-YYYYMMDDHHMM>
-report_for_instruction_id: <instruction_id>
-Next scheduler action: <consume ack | send routing correction>
+Scheduler Report Notice:
+- report_id:
+- report_path:
+- state_root:
+- unit_id:
+- state:
+- head:
+- base:
+- next_owner:
+- next_action:
 ```
 
 ## Report Consumed Receipt / 回报消费回执
 
 ```text
-Scheduler Report:
 report_consumed:
 - worker_id:
 - worker_thread_id:
 - report_id:
+- report_path:
 - report_for_instruction_id:
 - report_state:
 - consumed_at:
+- consumed_by_thread_id:
+- state_file_updated:
 - table_updated: yes | no
 - next_owner:
 ```
@@ -237,297 +270,102 @@ report_consumed:
 ## Routing Missing Report / 路由缺失回报
 
 ```text
-Scheduler Report:
-Worker: <worker_id>
-State: routing-missing
-instruction_ack:
-- instruction_id: <missing or value>
-- accepted: no
-- missing_fields: <scheduler_thread_id | report_to_thread_id | instruction_id | expected_report_type>
-report_id:
-worker_state: waiting-scheduler
-goal_status: <N/A | active | blocked>
-gate_state: N/A
-Next scheduler action: resend correction with required routing fields
-Next worker action: waiting
+Scheduler Report Notice:
+- report_id:
+- report_path:
+- state_root:
+- unit_id:
+- state: routing-missing
+- head: N/A
+- base: N/A
+- next_owner: scheduler
+- next_action: resend correction with scheduler_thread_id, report_to_thread_id, instruction_id, expected_report_type, orchestration_state_root, report_output_path, report_size_budget, do_not_read_retired_thread_turns
 ```
 
-## Pending Materialization Stalled Record / Worker 物化失败记录
+如果 `report_output_path` 不可写：
 
 ```text
-Scheduler Report:
-State: pending-materialization-stalled
-pending_materialization_status: pending-materialization-stalled
-请求创建的 worker:
-- worker_id:
-- pending_worktree_id:
-- title:
-- branch:
-- base:
-已尝试 readback:
-- thread search:
-- worksite search:
-- branch/head:
-- startup report:
-原因: short readback 后没有 readable worker thread/worksite
-Heartbeat Decision:
-- heartbeat_decision: action_taken | global_blocker
-- action_taken: create_thread | create_replacement_worker | update_heartbeat | none
-- global_blocker: <tool unavailable / permission / environment / N/A>
-Next scheduler action: <recreate worker | recover worker | report tool blocker>
-```
-
-## Scheduler Takeover Report / Scheduler 接管回报
-
-```text
-Scheduler Report:
-State: scheduler-takeover-active
-Event: scheduler-controlled-takeover
-原 worker: <worker_id / thread_id>
-原因: worker-stalled
-并发写入: <none confirmed>
-Worktree status: <clean, no rebase/merge/cherry-pick>
-Branch/head/PR alignment: <branch / head / base / PR>
-恢复范围: <short readback / tiny mechanical state repair / replacement preparation only>
-Validation: <commands and result>
-PR body readback: <aligned / mismatch>
-Hosted checks: <green / pending / failed>
-Next scheduler action: <run scheduler-owned gate | create replacement | classify blocker>
-```
-
-## Scheduler Takeover Abort / Escalation Report / 接管中止回报
-
-```text
-Scheduler Report:
-State: takeover-escalated
-Event: takeover-escalated
-原 worker: <worker_id / thread_id>
-升级触发条件: <needs commit | needs push | needs hosted checks wait | needs full validation | needs semantic fix | exceeds one short step>
-已完成的 scheduler readback:
-- PR/head/worktree:
-- concurrent writes:
-- worktree clean:
-Next scheduler action: create replacement worker
-Scheduler role restored: yes
-```
-
-## Worker Stalled Abandoned Record / 卡死 Worker 废弃记录
-
-```text
-Scheduler Report:
-State: worker-stalled/abandoned
-Event: worker-stalled-abandoned
-Worker: <worker_id>
-Thread: <thread_id>
-最后已知 worksite:
-最后已知 branch/head/base:
-PR/task:
-stall evidence:
-- latest turn inProgress with no output:
-- PR/head/base/updated_at stale:
-- worktree old head while base/main advanced:
-Replacement:
-- replacement_worker_id:
-- replacement_thread_id:
-Current scheduler action: waiting for replacement report
-```
-
-## Fact Table Readback / 事实表读回
-
-```text
-Scheduler Fact Table:
-- worker_id:
-- thread_id:
-- pending_worktree_id:
-- last_instruction_id:
-- awaiting_ack_for:
-- last_report_id:
-- last_report_consumed_at:
-- worksite:
-- branch:
-- base_sha:
-- merge_base:
-- current_head_sha:
-- PR number/state/head/base:
-- issue state:
-- worker_state:
-- goal_status:
-- gate_state:
-- next_owner:
-- next_action:
-- blocker_classification:
-- last_readback_at:
-- pending_materialization_status:
-- fact_source_priority: live host/local git readback > repo carrier current files > newest scheduler-authored state > newest worker report > older heartbeat summary
-```
-
-## Head-Bound Artifact Refresh Report / Head 绑定刷新回报
-
-```text
-Scheduler Report:
-State: recovered-waiting-scheduler-gate
-Head: <current_head_sha>
-Base: <base_sha>
-PR headRefOid: <readback oid>
-PR body machine carrier head_sha: <readback sha>
-PR metadata preflight: <pass/fail>
-compare-body: <pass/fail>
-review artifact stale: <yes/no>
-hosted gate stale-run: <yes/no>
-head_bound_artifacts_refreshed: <yes/no>
-Next scheduler action: <run scheduler-owned gate | refresh artifacts | classify blocker>
-```
-
-## Hosted Failure Classification / Hosted 失败分类
-
-```text
-Scheduler Report:
-State: <waiting-scheduler | scheduler-takeover-active | takeover-escalated>
-Hosted checks: <failed check/run id>
-hosted_failure_classification: <carrier drift | shadow drift | review stale | PR metadata drift | host stale run | code semantic failure>
-证据:
-- local validation:
-- PR/body/head readback:
-- repo carrier/shadow readback:
-- review artifact head:
-Next scheduler action: <repair | rerun after repair | replacement worker | takeover>
-分类前允许 rerun: no
-```
-
-## Delegation Fallback / 委派兜底
-
-```xml
-<codex_delegation>
-  <source_thread_id><worker_thread_id or worker_id></source_thread_id>
-  <input>
-  Worker: <worker_id>
-  Unit: <issue / PR / task>
-  State: <confirming | routing-missing | active | waiting-hosted | waiting-scheduler-gate | blocked | complete>
-  instruction_id: <id or N/A>
-  report_id: <id>
-  report_for_instruction_id: <id or N/A>
-  worker_state: <state>
-  goal_status: <unknown/active/blocked/complete/N/A>
-  gate_state: <state/N/A>
-  PR: <url or N/A>
-  Head: <head_sha>
-  Base: <base_sha>
-  Validation: <commands and pass/fail summary>
-  Hosted checks: <pending/pass/fail with run ids if available>
-  Gate owner: <scheduler | worker-authorized>
-  Blocker: <none or root cause>
-  Next scheduler action: <exact action needed>
-  Next worker action: <exact action or waiting>
-  </input>
-</codex_delegation>
+Scheduler Report Notice:
+- state: report-path-missing
+- state_root:
+- unit_id:
+- next_owner: scheduler
+- next_action: resend instruction with writable report_output_path
 ```
 
 ## Waiting Scheduler Gate Report / 等待调度 Gate 回报
 
+完整等待 gate report 写入 `report_output_path`。跨线程只发送：
+
 ```text
-Scheduler Report:
-Worker: <worker_id>
-State: waiting-scheduler-gate
-instruction_id: <id>
-report_id: <id>
-report_for_instruction_id: <id>
-worker_state: waiting-scheduler-gate
-goal_status: active
-gate_state: ready-for-scheduler
-Worksite: <path>
-Branch: <branch>
-Head: <head_sha>
-Base: <base_sha>
-PR/Task: <url>
-Scope diff: <matches objective / notes>
-Local validation: <commands passed>
-Hosted checks: <green, run ids>
-Metadata readback: <body/payload/head aligned>
-Findings: <none or dispositioned>
-Same-class search: <done / N/A>
-Gate Failure Ledger: <N/A or compact pr/head/attempts/repetition/escalation summary>
-Invariant checklist: <complete | partial | N/A>
-Fail-closed matrix coverage: <positive paths / negative cases / gaps / N/A>
-Unverifiable invariants: <none or list with owner>
-Admission-style valid=true path audited: <yes | no | N/A>
-Root-cause correction completed: <yes | no | N/A>
-Gate owner: scheduler
-Next scheduler action: <run guardian / formal review / controlled merge / post-merge readback>
-Next worker action: waiting
+Scheduler Report Notice:
+- report_id: <worker-id-waiting-gate-YYYYMMDDHHMM>
+- report_path: <state_root>/reports/<report_id>.json
+- state_root:
+- unit_id:
+- state: waiting-scheduler-gate
+- head: <current_head_sha>
+- base: <base_sha>
+- next_owner: scheduler
+- next_action: <run guardian / formal review / controlled merge / post-merge readback>
 ```
+
+report artifact 必须包含 worksite、branch、PR/task、scope diff、local validation、hosted checks、metadata readback、finding disposition、Gate Failure Ledger、invariant checklist、remaining risks 和 artifact paths。
 
 ## Heartbeat Prompt Skeleton / Heartbeat Prompt 骨架
 
 ```text
 你是 scheduler thread。不要创建 scheduler active goal。
 
+orchestration:
+- orchestration_state_root: /Users/<username>/orchestration/<project>/<round-or-unit>
+- dispatch_table_path: <state_root>/state/dispatch-table.json
+- recovery_index_path: <state_root>/state/recovery-index.json
+- report_inbox_glob: <state_root>/reports/*.json
+- consumption_path: <state_root>/consumption/
+- artifact_root: <state_root>/artifacts/
+- heartbeat_prompt_budget: <=8KB
+- report_size_budget: <=4KB
+- cross_thread_message_budget: <=2KB
+- do_not_read_retired_thread_turns: true
+
 Top Goal:
 <completion criteria，必须包含 merge/readback/closeout>
 
-Current Workers:
-- worker_id:
-- thread_id:
-- pending_worktree_id:
-- last_instruction_id:
-- awaiting_ack_for:
-- last_report_id:
-- last_report_consumed_at:
-- branch / worksite:
-- head / base:
-- state:
-- blocker:
-- gate_failure_ledger:
-  - pr_or_task:
-  - current_head:
-  - last_reviewed_head:
-  - gate_attempt_count:
-  - request_changes_count:
-  - repeated_semantic_area:
-  - touched_admission_paths:
-  - repetition_detection:
-  - escalation_action:
-- next_scheduler_action:
-- next_worker_action:
+Current locators to consume:
+- report_id:
+  report_path:
+  worker_id:
+  state:
+  head:
+  base:
+  next_owner:
+  next_action:
 
-Facts Consumed Before This Heartbeat:
-- worker_reports:
-- codex_delegation_reports:
-- live_pr_or_task_readback:
-- local_git_readback:
-- gate_failure_ledger_updates:
-- issue_state:
-- repo_carrier_state:
-- stale_heartbeat_corrected: yes|no
+State files to read:
+- dispatch_table_path
+- recovery_index_path
+- relevant project truth locators
 
-Planned But Not Started:
-<未启动事项和启动条件>
-
-Completed Readback:
-<merged/closed/readback facts>
+Hard forbidden actions:
+- 不读取 retired/systemError/abandoned thread turns。
+- 不用 list_threads/read_thread 重建状态。
+- 不把完整 dispatch table、report、thread preview、gate output 或 shell output 写入 prompt 或跨线程正文。
 
 Heartbeat Action:
-1. 先消费相关 worker reports / codex_delegation reports。
-2. 优先处理 waiting-scheduler-gate / stopped_at_waiting_scheduler_gate 的 scheduler-owned gate queue。
-3. 更新 Gate Failure Ledger；如果命中 same_class_semantic_boundary_repetition，设置 gate_retry_blocked，发送 root-cause correction，不得继续 high-cost gate。
-4. 如果 blocked，分类 root cause，并发送 correction、root-cause correction 或 new objective。
-5. 如果当前 batch 已完成，创建下一个 dependency-ready worker。
-6. 如果 pending worktree 短轮询后没有 readable thread/worksite，标记 pending-materialization-stalled 并 recreate/recover。
-7. 如果 instruction-sent-awaiting-ack 到本轮仍无 ack，resend/correct routing/recover；不得标记 active。
-8. 如果 prompt stale，先更新 automation，再继续调度。
-9. 如果 next_owner=scheduler 或 next_action_by=scheduler，先执行对应 side effect；不能只写下一步由 scheduler 执行。
+1. 读取 state files 和待消费 report locator。
+2. 对新 report_path 写 consumption record，再更新 dispatch table。
+3. 处理 waiting-scheduler-gate / stopped_at_waiting_scheduler_gate 的 scheduler-owned gate queue。
+4. 若 recovery/checkpoint prompt 已过期且没有 report locator 或事实变化，标记 worker-stalled 并选择 replacement/takeover。
+5. 如果 next_owner=scheduler 或 next_action_by=scheduler，先执行对应 side effect；不能只写下一步由 scheduler 执行。
 
 Heartbeat Decision:
 - heartbeat_decision: action_taken | valid_wait | global_blocker
-- action_taken: <create_thread | send_message_to_thread | run_scheduler_gate | controlled_merge_readback | mark_worker_stalled | create_replacement_worker | update_heartbeat | none>
-- valid_wait_reason: <same_hosted_run | active_worker_recent_output | external_bounded_wait | N/A>
-- effective_progress_subject: <worker thread/run/PR/head or N/A>
-- global_blocker: <classification or N/A>
+- action_taken:
+- valid_wait_reason:
+- effective_progress_subject:
+- global_blocker:
 - next_owner:
 - next_action_by:
 - next_decision_at:
-
-No self-owned next action, no stop:
-- scheduler-owned next action must be executed before this report.
-- If execution is impossible, classify the blocker instead of setting next_owner=scheduler.
-- valid_wait cannot be a scheduler-owned pending action.
 ```

@@ -4,6 +4,8 @@
 
 coordination unit 是 meta-scheduler watcher 管理的最小调度单元。它可以是 milestone、parent issue、issue set、pull request、PR set、release、phase、repo carrier 或用户手工目标。
 
+完整 unit graph 默认写入 `orchestration_state_root/state/unit-graph.json`。prompt 和跨线程消息只传 locator 或短摘要。
+
 推荐字段：
 
 ```text
@@ -31,11 +33,14 @@ unit:
 - next_owner:
 - next_action:
 - last_readback_at:
+- state_file:
+- last_report_path:
 ```
 
 ## Candidate Graph / 候选调度图
 
 candidate graph 是 watcher 在创建 scheduler 前维护的候选执行面。它比 unit graph 更细，可表达同一 unit 内的 implementation-only scope、blocked lane scope 和 later convergence scope。
+完整 candidate graph 默认写入 `orchestration_state_root/state/candidate-graph.json`。
 
 ```text
 candidate_graph:
@@ -52,6 +57,7 @@ candidate_graph:
 - state: planned | ready | scheduler-active | waiting-lane-grant | lane-granted | complete | deferred
 - next_owner:
 - next_action:
+- state_file:
 ```
 
 candidate pool 用于当前或下一批可启动候选：
@@ -67,6 +73,7 @@ candidate_pool:
 - waiting_lane:
 - scheduler_owner:
 - next_readback_at:
+- state_file:
 ```
 
 ## Dependency Edge Model / 依赖边模型
@@ -106,6 +113,7 @@ dependency_edge:
 ## Scheduler Pool / 调度器池
 
 watcher 维护 scheduler pool，而不是只维护单个 current scheduler。
+完整 scheduler pool 默认写入 `orchestration_state_root/state/scheduler-pool.json`。
 
 ```text
 scheduler_pool:
@@ -129,14 +137,19 @@ scheduler_pool:
 - lane_state:
 - merge_lane:
 - last_scheduler_report:
+- last_scheduler_report_path:
+- last_watcher_report_consumed_path:
 - last_readback_at:
 - next_owner:
 - next_action:
+- state_file:
+- recovery_index_path:
 ```
 
 ## Shared Lane Top-Level State / 共享通道顶层状态
 
 watcher 必须把 shared lane ownership 作为独立事实载体维护，而不是只写在 scheduler blocker 里。详细协议见 `lane-locks.md`。
+完整 lane lock table 和 waiting queue 默认分别写入 `orchestration_state_root/state/lane-lock-table.json` 与 `orchestration_state_root/state/waiting-queue.json`。
 
 ```text
 lane_lock_table:
@@ -167,9 +180,11 @@ watcher 决策时按以下事实优先级处理冲突：
 
 1. live host/local readback。
 2. repo carrier current files。
-3. lane lock table 和 waiting queue 的 live readback。
-4. newest scheduler final/blocked/active/lane report。
-5. watcher-authored state。
+3. orchestration carrier 中 watcher-authored state、lane lock table、waiting queue 和 consumption records。
+4. newest scheduler final/blocked/active/lane report artifact。
+5. current live scheduler locator / ACK notice。
 6. older watcher heartbeat summary。
 
-watcher 不消费 worker report 作为 unit truth。worker report 只能转发给 scheduler。
+watcher 不消费 worker report 作为 unit truth。worker report 只能用 locator notice 通知 scheduler；禁止转发完整正文。
+
+`read_thread`、`list_threads` 和 thread preview 不是事实层级。`read_thread` 只允许确认当前 live scheduler 的 short locator/ACK；retired、systemError 或 abandoned thread 不得读取 turns。
