@@ -58,7 +58,7 @@ dependency_extraction:
 
 - milestone open issues 为 0，或全部目标 issue 已 CLOSED/COMPLETED。
 - milestone 相关 open PR 为 0，或所有相关 PR 已 merged/closed 且被解释。
-- scheduler final report 显示 merge/readback/closeout consumed。
+- scheduler final report artifact 显示 merge/readback/closeout consumed。
 - repo carrier 或项目状态已消费完成事实。
 
 ### parent_issue
@@ -70,7 +70,7 @@ dependency_extraction:
 - child issues 全部 terminal。
 - parent issue 的 acceptance / closeout 被消费。
 - 无 linked open PR 或 unresolved scheduler gate。
-- scheduler final report 证明 parent closeout/readback。
+- scheduler final report artifact 证明 parent closeout/readback。
 
 ### issue_set
 
@@ -81,7 +81,7 @@ dependency_extraction:
 - issue set 中所有 required issues terminal。
 - optional/deferred issues 被明确标记 deferred，不算 complete。
 - issue set 不再有 open merge/gate/closeout PR。
-- scheduler final report 与 live readback 一致。
+- scheduler final report artifact 与 live readback 一致。
 
 ### pull_request
 
@@ -94,7 +94,7 @@ dependency_extraction:
 - PR head/base/body metadata 与 live readback 对齐；无 stale head-bound artifacts。
 - linked issue/task closeout 已完成，或有 not_applicable rationale。
 - repo carrier/status/shadow/review record 已消费 PR 事实，或明确不适用。
-- scheduler final report 证明 PR gate/merge/readback/closeout 处理完成。
+- scheduler final report artifact 证明 PR gate/merge/readback/closeout 处理完成。
 
 使用限制：
 
@@ -127,7 +127,7 @@ dependency_extraction:
 
 - project view 中目标 items 到 terminal/status done。
 - linked PR/issue 状态与 project view 一致。
-- scheduler final report 解释任何 project drift。
+- scheduler final report artifact 解释任何 project drift。
 
 ### release
 
@@ -149,7 +149,7 @@ dependency_extraction:
 - carrier 中 current unit terminal。
 - related PR/issue/live host 与 carrier 一致。
 - shadow/status/review/evidence 等派生载体同步。
-- scheduler final report 证明 carrier consumption。
+- scheduler final report artifact 证明 carrier consumption。
 
 ### manual_goal
 

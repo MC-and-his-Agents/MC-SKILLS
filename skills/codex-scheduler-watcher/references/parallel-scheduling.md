@@ -2,7 +2,7 @@
 
 ## Principle / 原则
 
-不设置固定 scheduler 数量上限。并发量由 candidate scope readiness、hard dependency consumption、ownership isolation、lane budget、gate pressure、merge lane、heartbeat observability 和 recovery capacity 决定。
+不设置固定 scheduler 数量上限。并发量由 candidate scope readiness、hard dependency consumption、ownership isolation、lane budget、gate pressure、merge lane、heartbeat observability、orchestration carrier 可消费性和 recovery capacity 决定。
 
 核心规则：
 
@@ -40,6 +40,7 @@ parallel_decision:
   - contract_lane_plan:
   - recovery_capacity_impact:
 - heartbeat_observability:
+- orchestration_carrier_observability:
 - recovery_capacity:
 - decision: start_parallel | start_parallel_implementation_only | keep_serial | defer
 - reason:
@@ -60,9 +61,10 @@ parallel_decision:
 - shared contract 或前置 shape owner 已 merged/readback。
 - 每个 unit 有独立 completion predicate。
 - 每个 scheduler 有独立 thread id 和 heartbeat id。
+- 每个 scheduler 有独立 report locator，完整状态写入 `orchestration_state_root`，watcher 不需要读线程 turns 才能判断状态。
 - hosted checks、review、merge gate 不争用同一资源。
 - merge lane plan 明确，必要时允许实现并行、merge 串行。
-- watcher 能在一次 heartbeat 内准确 read back 每个 active scheduler 的状态。
+- watcher 能在一次 heartbeat 内通过 state/report locator 和项目事实源准确判断每个 active scheduler 的状态。
 
 ## 必须保持串行的信号
 
@@ -76,9 +78,9 @@ parallel_decision:
 - merge 顺序会改变后续 base/head/review artifact。
 - shared lane 写入没有 lane budget、forbidden_shared_paths_before_grant 或 waiting queue plan。
 - high-cost gate 已排队、频繁失败或外部服务不稳定。
-- watcher heartbeat prompt 已经无法准确表达 active scheduler pool。
+- `orchestration_state_root`、report locator 或 heartbeat prompt 预算已经无法准确表达 active scheduler pool 的待消费状态。
 - 任一 scheduler 进入 `scheduler-stalled`、replacement、takeover、dirty metadata recovery。
-- watcher 无法读到 scheduler thread、heartbeat target 或 final report。
+- watcher 无法读到 live scheduler locator、heartbeat target 或 final report artifact。
 - GitHub/API/CI readback 不可靠，无法证明事实优先级。
 
 ## Merge Lane / 合并通道
@@ -115,3 +117,5 @@ lane budget 必须回答：
 - 确认 heartbeat target。
 - 跟踪每个 scheduler 的 next owner。
 - 在 scheduler blocked/stalled 时创建 replacement 或通知用户。
+
+这些动作必须能通过 `orchestration_state_root`、report locator 和项目事实源完成；如果只能通过读取旧线程 turns 才能完成，不要扩容。

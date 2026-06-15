@@ -25,7 +25,7 @@ worker 必须在确认 worksite 后自己创建 goal。objective 必须与 deleg
 
 如果 `create_goal` 因 old goal 存在而失败，回报 old goal state。若 old goal 是 `blocked` 或 `complete`，scheduler 必须发送新的 exact objective，worker 才能创建新 goal 继续。
 
-没有 scheduler-readable final report，不得标记 goal complete。如果 `gate_owner=scheduler`，complete 通常不是本地 merge；worker 应回报 `waiting-scheduler-gate`。
+没有 scheduler-readable final report artifact 和 locator notice，不得标记 goal complete。如果 `gate_owner=scheduler`，complete 通常不是本地 merge；worker 应回报 `waiting-scheduler-gate` locator。
 
 ## Waiting Is Not Always Blocked / 等待不总是阻塞
 
@@ -66,6 +66,6 @@ worker 必须在确认 worksite 后自己创建 goal。objective 必须与 deleg
 
 ## Scheduler Implications / 对 Scheduler 的含义
 
-scheduler 审核 worker self-reports；不能通过 goal API 直接检查 worker goal。`read_thread` 可用于 status readback，但不是 goal API。
+scheduler 审核 worker report artifacts；不能通过 goal API 直接检查 worker goal。`read_thread` 只允许确认当前 live thread 的 short locator/ACK 可达性，不能作为 goal API、状态数据库或 retired/systemError/abandoned thread turns 的恢复来源。
 
 不要要求 blocked 或 complete worker “继续”而不提供新 objective。不要因为一个 worker goal blocked 就认为 global objective blocked；先分类 blocker，并调度可行动的 owner。

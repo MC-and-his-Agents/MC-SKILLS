@@ -37,6 +37,7 @@ scheduler_state:
 - merge lane plan。
 - scheduler model/reasoning policy。
 - watcher thread id 和 `report_to_watcher_thread_id`。
+- `orchestration_state_root`、`report_output_path`、`report_size_budget` 和 `do_not_read_retired_thread_turns: true`。
 - 唯一 `watcher_instruction_id`，格式建议 `<unit-id>-scheduler-<YYYYMMDDHHMM>`。
 - `expected_scheduler_report_type` 和 `ack_deadline_or_next_wakeup_decision`。
 - 要求 scheduler 读取 `$codex-thread-orchestration`。
@@ -48,7 +49,7 @@ scheduler_state:
 - scheduler title。
 - `scheduler_ack` 或 routing-missing report。
 - scheduler heartbeat id 和 target。
-- scheduler startup dispatch table。
+- scheduler startup dispatch table locator。
 - scheduler 是否只处理 assigned unit。
 - scheduler 是否只处理 watcher 授权的 unblocked scope，并排除 blocked scope。
 - scheduler 是否在 worker objective 中继承 grant 前 forbidden shared paths。
@@ -66,6 +67,10 @@ watcher_thread_id:
 scheduler_thread_id: <known id or scheduler fills in scheduler_ack>
 report_to_watcher_thread_id:
 expected_scheduler_report_type:
+orchestration_state_root:
+report_output_path:
+report_size_budget:
+do_not_read_retired_thread_turns: true
 ack_deadline_or_next_wakeup_decision:
 ```
 
@@ -87,13 +92,14 @@ scheduler_ack:
 
 ## Scheduler Report Consumption / 调度回报消费
 
-watcher 读取 scheduler report 后，必须在 watcher thread、scheduler pool 或 unit graph 中记录：
+watcher 读取 scheduler report artifact 后，必须在 `orchestration_state_root/consumption/`、scheduler pool 或 unit graph 中记录：
 
 ```text
 watcher_report_consumed:
 - watcher_thread_id:
 - scheduler_thread_id:
 - scheduler_report_id:
+- scheduler_report_path:
 - report_for_watcher_instruction_id:
 - report_state:
 - consumed_at:
@@ -102,16 +108,16 @@ watcher_report_consumed:
 - next_owner:
 ```
 
-没有 `watcher_report_consumed` 时，不得把 scheduler report 视为已经驱动 scheduler pool 或 unit state transition。若 report 缺 `scheduler_report_id` 或 `report_for_watcher_instruction_id`，watcher 可以消费 live facts，但必须标记 `report_id_missing`，并在下一条 correction 中要求 scheduler 补齐。
+没有 `watcher_report_consumed` 时，不得把 scheduler report 视为已经驱动 scheduler pool 或 unit state transition。若 report 缺 `scheduler_report_id`、`scheduler_report_path` 或 `report_for_watcher_instruction_id`，watcher 可以消费 live facts，但必须标记 `report_locator_missing`，并在下一条 correction 中要求 scheduler 补齐。
 
 ## Lane-Level Report Consumption / Lane 级回报消费
 
 watcher 只消费 scheduler-level lane reports，不消费 worker lane detail。
 
-`lane_request` 到达后，watcher 必须：
+`lane_request` locator 到达后，watcher 必须：
 
 - 记录 `lane_requests_consumed`。
-- 读取 lane_lock_table、waiting_queue、open PR changed files 和 owner release predicate。
+- 读取 `state/lane-lock-table.json`、`state/waiting-queue.json`、open PR changed files 和 owner release predicate。
 - 返回 `lane_grant`、`lane_wait` 或 `lane_denied`。
 - 更新 scheduler state 为 `scheduler-lane-granted` 或 `scheduler-waiting-lane-grant`。
 
@@ -137,6 +143,7 @@ lane_report_consumed:
 - scheduler_thread_id:
 - report_type: lane_request | lane_release | scheduler_blocked_update
 - report_id:
+- report_path:
 - consumed_at:
 - lane_lock_table_updated: yes|no
 - waiting_queue_updated: yes|no
@@ -146,12 +153,13 @@ lane_report_consumed:
 
 ## Replacement Scheduler / 替换调度器
 
-当 scheduler thread 缺失、不可读、长期无有效 heartbeat、反复 status-only、或无法恢复时，watcher 可以创建 replacement scheduler。
+当 scheduler thread 缺失、不可读、长期无有效 heartbeat、反复 status-only、或无法恢复时，watcher 可以创建 replacement scheduler。旧 thread 必须先标记 `retired` 或 `systemError-retired`，并写入 recovery index；不得读取旧 thread turns。
 
 replacement objective 必须包含：
 
 - abandoned scheduler thread id。
 - replacement reason。
+- orchestration_state_root 和必要 report/state locator。
 - unit id 和 completion predicate。
 - dependency edges、unblocked scope、blocked scope。
 - live readback facts。
@@ -159,8 +167,10 @@ replacement objective 必须包含：
 - forbidden scope。
 - current branch/PR/issue/repo carrier facts。
 - recovery boundary：replacement scheduler 不接管其他 units。
+- do_not_read_retired_thread_turns: true。
 
 原 scheduler 标记为 `scheduler-stalled` 或 `retired`，不得继续作为有效 scheduler 消费。
+旧 lane grant 不自动继承。replacement scheduler 进入 shared lane 前必须重新发送 `lane_request`；watcher 重新验证 release predicate、current PR/head/base、repo carrier 和 waiting_queue 后才可 grant。
 
 ## Blocked Scheduler / 阻塞调度器
 
@@ -177,7 +187,7 @@ replacement objective 必须包含：
 
 ## Complete Scheduler / 完成调度器
 
-scheduler 报 complete 后，watcher 必须独立 read back completion predicate。只有 scheduler final report 和 live/repo facts 对齐，unit 才能转为 complete。
+scheduler 报 complete locator 后，watcher 必须读取 final report artifact，并独立 read back completion predicate。只有 scheduler final report artifact 和 live/repo facts 对齐，unit 才能转为 complete。
 
 完成后动作：
 
