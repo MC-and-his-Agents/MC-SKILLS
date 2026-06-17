@@ -54,6 +54,7 @@ in [`.agents/plugins/marketplace.json`](./.agents/plugins/marketplace.json).
 | Plugin | Category | Version | Description |
 |---|---|---:|---|
 | [codegraph-intelligence](./plugins/codegraph-intelligence/README.md) | Developer Tools | 0.1.0 | Graph-backed workflows for exploring and modifying codebases using CodeGraph. |
+| [loopengineer](./plugins/loopengineer/README.md) | Productivity | 0.6.1 | Control plane for reliable AI agent loops. |
 <!-- PLUGINS_END -->
 
 ## Notes
