@@ -4,6 +4,14 @@ This repository collects Codex skills and Codex plugins.
 
 [中文版](./README.zh-CN.md)
 
+## Marketplace Prompt
+
+Copy this prompt to your agent:
+
+```text
+Please add the MC-SKILLS Codex plugin marketplace by running `codex plugin marketplace add MC-and-his-Agents/MC-SKILLS --ref main`, refresh it with `codex plugin marketplace upgrade`, and verify it with `codex plugin marketplace list` and `codex plugin list`.
+```
+
 ## Skills
 
 Standalone skills live under `skills/`. They are kept as lightweight reusable
