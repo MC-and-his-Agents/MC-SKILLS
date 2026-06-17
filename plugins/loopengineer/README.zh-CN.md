@@ -2,8 +2,8 @@
 
 # LoopEngineer
 
-[![Release](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMC-and-his-Agents%2FLoopEngineer%2Fmain%2Fmetadata%2Floopengineer.json&query=%24.version&prefix=v&label=release&color=2563EB)](https://github.com/MC-and-his-Agents/LoopEngineer/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/MC-and-his-Agents/LoopEngineer?label=release)](https://github.com/MC-and-his-Agents/LoopEngineer/releases/latest)
+[![License](https://img.shields.io/github/license/MC-and-his-Agents/LoopEngineer)](LICENSE)
 ![Codex Plugin](https://img.shields.io/badge/Codex-Plugin-2563EB)
 ![Loop Engine](https://img.shields.io/badge/Loop-Engine-0F766E)
 ![Agent Loop](https://img.shields.io/badge/Agent-Loop-7C3AED)
@@ -29,14 +29,6 @@ LoopEngineer 帮助团队构建更可靠的 agent loop：控制上下文、保�
 它不是又一个"agent 使用技巧"仓库。
 
 LoopEngineer 是一个 **agent loop control plane**。
-
-## 安装 Prompt
-
-复制这句话给你的 agent：
-
-```text
-请从 MC-SKILLS marketplace 安装 LoopEngineer Codex plugin：依次运行 `codex plugin marketplace add MC-and-his-Agents/MC-SKILLS --ref main`、`codex plugin marketplace upgrade` 和 `codex plugin add loopengineer@mcskills`，然后用 `codex plugin list` 验证安装结果。
-```
 
 ## 为什么 Agent Loop 需要工程化
 

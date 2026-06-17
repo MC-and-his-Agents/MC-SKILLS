@@ -2,8 +2,8 @@
 
 # LoopEngineer
 
-[![Release](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMC-and-his-Agents%2FLoopEngineer%2Fmain%2Fmetadata%2Floopengineer.json&query=%24.version&prefix=v&label=release&color=2563EB)](https://github.com/MC-and-his-Agents/LoopEngineer/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/MC-and-his-Agents/LoopEngineer?label=release)](https://github.com/MC-and-his-Agents/LoopEngineer/releases/latest)
+[![License](https://img.shields.io/github/license/MC-and-his-Agents/LoopEngineer)](LICENSE)
 ![Codex Plugin](https://img.shields.io/badge/Codex-Plugin-2563EB)
 ![Loop Engine](https://img.shields.io/badge/Loop-Engine-0F766E)
 ![Agent Loop](https://img.shields.io/badge/Agent-Loop-7C3AED)
@@ -29,14 +29,6 @@ It is not a workflow checklist.
 It is not another "agent tips" repository.
 
 LoopEngineer is an **agent loop control plane**.
-
-## Install Prompt
-
-Copy this prompt to your agent:
-
-```text
-Please install the LoopEngineer Codex plugin from the MC-SKILLS marketplace by running `codex plugin marketplace add MC-and-his-Agents/MC-SKILLS --ref main`, `codex plugin marketplace upgrade`, and `codex plugin add loopengineer@mcskills`, then verify it with `codex plugin list`.
-```
 
 ## Why Agent Loops Need Engineering
 
