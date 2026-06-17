@@ -52,6 +52,7 @@ skill 都适合链接时，才省略 `<skill-name>` 批量安装。
 | 插件 | 分类 | 版本 | 描述 |
 |---|---|---:|---|
 | [codegraph-intelligence](./plugins/codegraph-intelligence/README.md) | Developer Tools | 0.1.0 | Graph-backed workflows for exploring and modifying codebases using CodeGraph. |
+| [loopengineer](./plugins/loopengineer/README.md) | Productivity | 0.6.1 | Control plane for reliable AI agent loops. |
 <!-- PLUGINS_END -->
 
 ## Notes
