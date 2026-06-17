@@ -4,6 +4,14 @@
 
 [English](./README.md)
 
+## Marketplace 安装 Prompt
+
+复制这句话给你的 agent：
+
+```text
+请添加 MC-SKILLS Codex plugin marketplace：运行 `codex plugin marketplace add MC-and-his-Agents/MC-SKILLS --ref main`，再运行 `codex plugin marketplace upgrade` 刷新，并用 `codex plugin marketplace list` 和 `codex plugin list` 验证。
+```
+
 ## Skills
 
 独立 skill 放在 `skills/` 下。它们作为轻量复用资产保留，不进入 plugin marketplace。
